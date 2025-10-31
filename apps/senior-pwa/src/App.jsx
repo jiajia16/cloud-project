@@ -6,6 +6,7 @@ import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import Home from "./pages/Home.jsx";
 import MyTrails from "./pages/MyTrails.jsx";
+import TrailDetail from "./pages/TrailDetail.jsx";
 import Scan from "./pages/Scan.jsx";
 import Leaderboard from "./pages/Leaderboard.jsx";
 import Rewards from "./pages/Rewards.jsx";
@@ -49,6 +50,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <MyTrails />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/mytrails/:trailId"
+        element={
+          <ProtectedRoute>
+            <TrailDetail />
           </ProtectedRoute>
         }
       />
