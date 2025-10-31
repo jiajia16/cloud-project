@@ -8,3 +8,4 @@
 
 - Senior PWA now triggers /auth/logout on sign-out (updated pps/senior-pwa/src/services/auth.js, pps/senior-pwa/src/contexts/AuthContext.jsx, and pps/senior-pwa/src/pages/Home.jsx). 
 
+- Senior PWA auth module/context now support token refresh, `/users/me` hydration, and expiry-aware persistence.

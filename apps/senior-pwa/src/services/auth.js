@@ -55,3 +55,18 @@ export async function logoutUser({ refreshToken, accessToken }) {
         token: accessToken,
     });
 }
+
+export async function refreshTokens({ refreshToken, accessToken }) {
+    return request("/auth/refresh", {
+        method: "POST",
+        body: { refresh_token: refreshToken },
+        token: accessToken,
+    });
+}
+
+export async function fetchCurrentUser({ accessToken }) {
+    return request("/users/me", {
+        method: "GET",
+        token: accessToken,
+    });
+}
