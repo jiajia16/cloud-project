@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useNavigate } from "react-router-dom";
 import {
@@ -10,69 +10,187 @@ import {
     Globe,
     User,
     Lightbulb,
+    RefreshCcw,
+    CalendarRange,
+    MapPin,
 } from "lucide-react";
+import {
+    getMyConfirmedTrails,
+    getMyRegistrations,
+    listTrails,
+} from "../services/trails.js";
+
+const HIGHLIGHTS = [
+    {
+        title: "Seniors Tai Chi",
+        subtitle: "Morning Tai Chi",
+        desc: "Join Uncle Lim and friends every Tuesday",
+        color: "bg-cyan-300",
+    },
+    {
+        title: "Cooking Class",
+        subtitle: "Cooking Workshop",
+        desc: "Learn traditional recipes together",
+        color: "bg-orange-300",
+    },
+    {
+        title: "Garden Club",
+        subtitle: "Garden Club",
+        desc: "Grow herbs and vegetables together",
+        color: "bg-cyan-300",
+    },
+];
+
+function formatDate(value) {
+    if (!value) {
+        return "Date TBC";
+    }
+    try {
+        return new Intl.DateTimeFormat("en-SG", {
+            dateStyle: "medium",
+            timeStyle: "short",
+        }).format(new Date(value));
+    } catch (err) {
+        return value;
+    }
+}
 
 export default function Home() {
-    const { user, logout } = useAuth();
+    const { user, logout, tokens } = useAuth();
     const navigate = useNavigate();
+    const accessToken = tokens?.access_token;
 
-    const highlights = [
-        {
-            title: "Seniors Tai Chi",
-            subtitle: "Morning Tai Chi",
-            desc: "Join Uncle Lim and friends every Tuesday",
-            color: "bg-cyan-300",
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [registrations, setRegistrations] = useState([]);
+    const [confirmedTrails, setConfirmedTrails] = useState([]);
+    const [availableTrails, setAvailableTrails] = useState([]);
+
+    const fetchData = useCallback(
+        async (signal) => {
+            if (!accessToken) {
+                return;
+            }
+            setLoading(true);
+            setError("");
+            try {
+                const [trailsRes, regsRes, confirmedRes] = await Promise.all([
+                    listTrails({ accessToken, signal }),
+                    getMyRegistrations({ accessToken, signal }),
+                    getMyConfirmedTrails({ accessToken, signal }),
+                ]);
+
+                const regs = regsRes ?? [];
+                const trails = trailsRes ?? [];
+                const confirmed = confirmedRes ?? [];
+
+                const joinedIds = new Set(regs.map((reg) => reg.trail_id));
+                const upcoming = trails
+                    .filter((trail) => !joinedIds.has(trail.id))
+                    .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+
+                setRegistrations(regs);
+                setConfirmedTrails(confirmed);
+                setAvailableTrails(upcoming);
+            } catch (err) {
+                if (!(signal?.aborted)) {
+                    setError(err?.message ?? "Unable to load your trail information.");
+                }
+            } finally {
+                if (!(signal?.aborted)) {
+                    setLoading(false);
+                }
+            }
         },
-        {
-            title: "Cooking Class",
-            subtitle: "Cooking Workshop",
-            desc: "Learn traditional recipes together",
-            color: "bg-orange-300",
-        },
-        {
-            title: "Garden Club",
-            subtitle: "Garden Club",
-            desc: "Grow herbs and vegetables together",
-            color: "bg-cyan-300",
-        },
-    ];
+        [accessToken]
+    );
+
+    useEffect(() => {
+        if (!accessToken) {
+            return;
+        }
+        const controller = new AbortController();
+        fetchData(controller.signal);
+        return () => controller.abort();
+    }, [accessToken, fetchData]);
+
+    const confirmedCount = useMemo(
+        () => registrations.filter((reg) => reg.status === "confirmed").length,
+        [registrations]
+    );
+    const totalRegistrations = registrations.length;
+    const progressPct = totalRegistrations === 0 ? 0 : Math.round((confirmedCount / totalRegistrations) * 100);
+    const upcomingTrails = useMemo(() => availableTrails.slice(0, 4), [availableTrails]);
+
+    const handleLogout = useCallback(async () => {
+        await logout();
+        navigate("/login", { replace: true });
+    }, [logout, navigate]);
 
     return (
         <div className="min-h-screen bg-cyan-50 flex flex-col items-center py-6 font-sans">
-            {/* Header */}
             <div className="w-full max-w-3xl flex justify-between items-center px-6 py-3 bg-white rounded-2xl shadow-sm">
                 <h1 className="text-xl font-bold text-cyan-700">SilverTrails</h1>
                 <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-1 text-sm bg-cyan-100 px-3 py-1 rounded-xl">
-                        <Globe className="w-4 h-4" /> 中文
+                    <button
+                        type="button"
+                        className="flex items-center gap-1 text-sm bg-cyan-100 px-3 py-1 rounded-xl hover:bg-cyan-200 transition"
+                        onClick={() => alert("Language selection coming soon!")}
+                    >
+                        <Globe className="w-4 h-4" />
+                        EN
                     </button>
                     <button
-                        className="flex items-center justify-center w-8 h-8 bg-cyan-100 rounded-full hover:bg-cyan-200"
-                        onClick={logout}
+                        type="button"
+                        className="flex items-center justify-center w-8 h-8 bg-cyan-100 rounded-full hover:bg-cyan-200 transition"
+                        onClick={() => alert("Profile screen coming soon!")}
                     >
                         <User className="w-5 h-5 text-cyan-700" />
                     </button>
+                    <button
+                        type="button"
+                        className="flex items-center gap-1 text-sm bg-rose-100 px-3 py-1 rounded-xl text-rose-600 hover:bg-rose-200 transition"
+                        onClick={handleLogout}
+                    >
+                        <LogOut className="w-4 h-4" />
+                        Log out
+                    </button>
                 </div>
             </div>
 
-            {/* Welcome Banner */}
             <div className="w-full max-w-3xl mt-6 bg-gradient-to-r from-cyan-400 to-teal-400 text-white p-6 rounded-2xl shadow-md">
-                <h2 className="text-2xl font-bold">Welcome back, {user?.name || "Auntie Mei"}!</h2>
+                <h2 className="text-2xl font-bold">Welcome back, {user?.name || "Friend"}!</h2>
                 <p className="text-cyan-50 mt-2">Ready for another wonderful day of activities?</p>
             </div>
 
-            {/* Progress */}
             <div className="w-full max-w-3xl bg-white p-4 mt-4 rounded-2xl shadow-sm">
+                <div className="flex justify-between items-center mb-2 text-gray-700 font-semibold">
+                    <span>Your Progress</span>
+                    <span className="text-cyan-600">
+                        {confirmedCount} / {totalRegistrations || 1} activities confirmed
+                    </span>
+                </div>
                 <div className="flex justify-between text-gray-700 font-semibold mb-2">
-                    <span>Your Progress This Month</span>
-                    <span className="text-cyan-600">3/10 activities</span>
+                    <span className="text-sm text-gray-500">Includes activities you have registered for.</span>
+                    <button
+                        type="button"
+                        onClick={() => fetchData()}
+                        className="flex items-center gap-1 text-sm text-cyan-700 hover:text-cyan-800"
+                        disabled={loading}
+                    >
+                        <RefreshCcw className="w-4 h-4" />
+                        Refresh
+                    </button>
                 </div>
                 <div className="w-full h-3 bg-gray-200 rounded-full">
-                    <div className="h-3 w-3/10 bg-cyan-400 rounded-full"></div>
+                    <div
+                        className="h-3 bg-cyan-400 rounded-full transition-all"
+                        style={{ width: `${progressPct}%` }}
+                    />
                 </div>
+                {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
             </div>
 
-            {/* Menu Cards */}
             <div className="w-full max-w-3xl grid grid-cols-2 gap-4 mt-4">
                 <Card
                     icon={<BookOpen className="w-6 h-6 text-pink-500" />}
@@ -100,34 +218,68 @@ export default function Home() {
                 />
             </div>
 
-            {/* Daily Motivation */}
+            <div className="w-full max-w-3xl mt-6 bg-white p-5 rounded-2xl shadow-sm">
+                <h3 className="text-gray-800 font-bold text-lg mb-4">Upcoming Trails</h3>
+                {loading && upcomingTrails.length === 0 ? (
+                    <p className="text-sm text-gray-500">Loading upcoming activities...</p>
+                ) : upcomingTrails.length === 0 ? (
+                    <p className="text-sm text-gray-500">
+                        You are all caught up. New activities will appear here once available.
+                    </p>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {upcomingTrails.map((trail) => (
+                            <div key={trail.id} className="border border-gray-100 rounded-xl p-4 bg-cyan-50/60">
+                                <h4 className="font-semibold text-gray-800">{trail.title}</h4>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    {trail.description ?? "Join the community activity."}
+                                </p>
+                                <div className="mt-3 space-y-1 text-sm text-gray-700">
+                                    <div className="flex items-center gap-2">
+                                        <CalendarRange className="w-4 h-4 text-cyan-600" />
+                                        <span>
+                                            {formatDate(trail.starts_at)} -> {formatDate(trail.ends_at)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className="w-4 h-4 text-cyan-600" />
+                                        <span>{trail.location ?? "To be confirmed"}</span>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/mytrails")}
+                                    className="mt-3 text-sm text-cyan-700 hover:text-cyan-800 font-semibold"
+                                >
+                                    View details ->
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             <div className="w-full max-w-3xl bg-orange-100 mt-6 p-5 rounded-2xl shadow-sm">
                 <div className="flex items-center gap-3">
                     <Lightbulb className="w-6 h-6 text-orange-500" />
                     <h3 className="text-orange-600 font-bold text-lg">Daily Motivation</h3>
                 </div>
                 <p className="text-gray-700 mt-2">
-                    Try something new today! Maybe Mahjong class at Pasir Ris CC?
+                    Keep moving! Confirmed activities count towards your community leaderboard.
                 </p>
                 <button className="mt-3 px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition">
                     Learn More
                 </button>
             </div>
 
-            {/* Community Highlights */}
             <div className="w-full max-w-3xl mt-6 bg-white p-5 rounded-2xl shadow-sm">
-                <h3 className="text-gray-800 font-bold text-lg mb-4">
-                    Community Highlights
-                </h3>
+                <h3 className="text-gray-800 font-bold text-lg mb-4">Community Highlights</h3>
                 <div className="grid grid-cols-3 gap-4">
-                    {highlights.map((h, i) => (
-                        <div
-                            key={i}
-                            className={`${h.color} text-white p-4 rounded-2xl text-center shadow-sm`}
-                        >
-                            <h4 className="text-lg font-bold mb-2">{h.title}</h4>
-                            <p className="text-sm">{h.subtitle}</p>
-                            <p className="text-xs text-white/90 mt-1">{h.desc}</p>
+                    {HIGHLIGHTS.map((highlight, index) => (
+                        <div key={index} className={`${highlight.color} text-white p-4 rounded-2xl text-center shadow-sm`}>
+                            <h4 className="text-lg font-bold mb-2">{highlight.title}</h4>
+                            <p className="text-sm">{highlight.subtitle}</p>
+                            <p className="text-xs text-white/90 mt-1">{highlight.desc}</p>
                         </div>
                     ))}
                 </div>
@@ -136,14 +288,16 @@ export default function Home() {
     );
 }
 
-// Reusable Card Component
 function Card({ icon, title, desc, onClick }) {
     return (
         <button
             onClick={onClick}
             className="bg-white rounded-2xl p-5 shadow-sm text-left hover:bg-cyan-50 transition flex flex-col justify-between"
         >
-            <div className="flex items-center gap-3 mb-2">{icon}<h3 className="text-gray-800 font-bold text-lg">{title}</h3></div>
+            <div className="flex items-center gap-3 mb-2">
+                {icon}
+                <h3 className="text-gray-800 font-bold text-lg">{title}</h3>
+            </div>
             <p className="text-gray-600 text-sm">{desc}</p>
         </button>
     );

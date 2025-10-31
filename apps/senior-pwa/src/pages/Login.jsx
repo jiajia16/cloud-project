@@ -1,17 +1,32 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useNavigate } from "react-router-dom";
+import { loginUser } from "../services/auth.js";
 
 export default function Login() {
-    const [name, setName] = useState("");
+    const [nric, setNric] = useState("");
+    const [passcode, setPasscode] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (name.trim()) {
-            login(name);
-            navigate("/home");
+        setError("");
+        if (!nric.trim() || !passcode.trim()) {
+            setError("Please enter your NRIC and 8-digit passcode.");
+            return;
+        }
+        setLoading(true);
+        try {
+            const response = await loginUser({ nric: nric.trim(), passcode: passcode.trim() });
+            login(response);
+            navigate("/home", { replace: true });
+        } catch (err) {
+            setError(err.message || "Unable to log in. Please try again.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -20,20 +35,43 @@ export default function Login() {
             <div className="bg-white shadow-xl rounded-3xl p-8 w-[90%] max-w-sm text-center">
                 <h1 className="text-3xl font-bold text-teal-600 mb-6">Welcome to SilverTrails</h1>
 
-                <form onSubmit={handleSubmit}>
-                    <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Enter your name"
-                        className="w-full border border-gray-300 rounded-xl p-3 text-center focus:ring-2 focus:ring-teal-400 outline-none mb-5"
-                    />
+                <form onSubmit={handleSubmit} className="space-y-4 text-left">
+                    <label className="block">
+                        <span className="text-sm font-medium text-gray-700">NRIC / Identifier</span>
+                        <input
+                            type="text"
+                            value={nric}
+                            onChange={(e) => setNric(e.target.value)}
+                            placeholder="e.g. S1234567A"
+                            className="mt-1 w-full border border-gray-300 rounded-xl p-3 text-center focus:ring-2 focus:ring-teal-400 outline-none"
+                            autoFocus
+                        />
+                    </label>
+                    <label className="block">
+                        <span className="text-sm font-medium text-gray-700">Passcode (8-digit)</span>
+                        <input
+                            type="password"
+                            value={passcode}
+                            onChange={(e) => setPasscode(e.target.value)}
+                            placeholder="DDMMYYYY"
+                            className="mt-1 w-full border border-gray-300 rounded-xl p-3 text-center focus:ring-2 focus:ring-teal-400 outline-none"
+                            inputMode="numeric"
+                            pattern="\d{8}"
+                        />
+                    </label>
+
+                    {error && (
+                        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-2 text-center">
+                            {error}
+                        </p>
+                    )}
 
                     <button
                         type="submit"
-                        className="w-full bg-gradient-to-r from-teal-400 to-cyan-400 text-white text-lg py-3 rounded-xl shadow-md hover:brightness-110 transition"
+                        className="w-full bg-gradient-to-r from-teal-400 to-cyan-400 text-white text-lg py-3 rounded-xl shadow-md hover:brightness-110 transition disabled:opacity-60"
+                        disabled={loading}
                     >
-                        Login
+                        {loading ? "Signing in..." : "Login"}
                     </button>
                 </form>
 
