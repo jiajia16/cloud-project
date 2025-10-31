@@ -37,20 +37,38 @@ export default function Home() {
         },
     ];
 
+    const handleLogout = async () => {
+        await logout();
+        navigate("/login", { replace: true });
+    };
+
     return (
         <div className="min-h-screen bg-cyan-50 flex flex-col items-center py-6 font-sans">
             {/* Header */}
             <div className="w-full max-w-3xl flex justify-between items-center px-6 py-3 bg-white rounded-2xl shadow-sm">
                 <h1 className="text-xl font-bold text-cyan-700">SilverTrails</h1>
                 <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-1 text-sm bg-cyan-100 px-3 py-1 rounded-xl">
-                        <Globe className="w-4 h-4" /> 中文
+                    <button
+                        type="button"
+                        className="flex items-center gap-1 text-sm bg-cyan-100 px-3 py-1 rounded-xl hover:bg-cyan-200 transition"
+                        onClick={() => alert("Language selection coming soon!")}
+                    >
+                        <Globe className="w-4 h-4" /> ??
                     </button>
                     <button
-                        className="flex items-center justify-center w-8 h-8 bg-cyan-100 rounded-full hover:bg-cyan-200"
-                        onClick={logout}
+                        type="button"
+                        className="flex items-center justify-center w-8 h-8 bg-cyan-100 rounded-full hover:bg-cyan-200 transition"
+                        onClick={() => alert("Profile screen coming soon!")}
                     >
                         <User className="w-5 h-5 text-cyan-700" />
+                    </button>
+                    <button
+                        type="button"
+                        className="flex items-center gap-1 text-sm bg-rose-100 px-3 py-1 rounded-xl text-rose-600 hover:bg-rose-200 transition"
+                        onClick={handleLogout}
+                    >
+                        <LogOut className="w-4 h-4" />
+                        Log out
                     </button>
                 </div>
             </div>
