@@ -12,3 +12,21 @@
 - Senior PWA trails views now call live APIs for listings, registrations, and confirmed trails (new apps/senior-pwa/src/services/trails.js, updated apps/senior-pwa/src/pages/Home.jsx and apps/senior-pwa/src/pages/MyTrails.jsx).
 - Trail detail, join/cancel UI, and registration status lookup added but backend session cleanup still unstable (in progress; see trails-activities-svc/app/db.py).
 - Senior PWA trail detail page now memoizes its refresh handler without trail-state churn and tracks first-load with a ref, preventing the view from spamming `GET /users/me/registrations`/`GET /trails/:id` while open.
+- Senior PWA scan experience now calls the QR check-in service for live scans, manual token entry, and history (`apps/senior-pwa/src/services/checkins.js`, `apps/senior-pwa/src/pages/Scan.jsx`, reusing `components/QRScanner.jsx`).
+- Updated backend `checklist.md` to mark `GET /checkin/users/me` as implemented and note that `POST /checkin/scan` still needs end-to-end camera verification.
+- Senior PWA rewards screen now fetches live points, vouchers, and redemption history via points service (new `src/services/points.js`, updated `src/pages/Rewards.jsx`).
+- Updated checklist entries for points/voucher attendee APIs to "!" to indicate pending organiser-driven testing.
+- Senior PWA now consumes leaderboard & attendance services (new `src/services/leaderboard.js`, updated `src/pages/Leaderboard.jsx` and `src/pages/MyTrails.jsx`).
+- Added organiser dashboard auth context, organiser login page, and `organiserLogin` service consuming /auth/organisers/login.
+- Added organiser test account (username admin) and marked /auth/organisers login/signup as implemented.
+- Split API checklist into Senior PWA vs Organiser Dashboard sections with endpoint coverage.
+- Reworked checklist into service-by-service matrix showing Senior PWA vs Organiser Dashboard coverage.
+- Organiser dashboard auth context now refreshes tokens, hydrates profile via /users/me, and calls /auth/logout.
+- Updated organiser UI button helper and layout to remove React warnings and hydration mismatches.
+- Organizer dashboard Manage Trails view now consumes live Trails & Activities APIs for listing, creation, editing, attendee rosters, status workflows, manual enrolment, and invite minting.
+- Trails & Activities backend now respects requested initial status, restricts `/trails` listings to authenticated roles, and serves paginated attendee payloads (updated `app/routers/trails.py`, `app/schemas.py` plus new tests in `tests/test_trails_service.py`).
+- Organiser dashboard trail services now understand paginated rosters and optional status on create (updated `apps/organizer-dashboard/src/services/trails.ts`).
+- Manage Trails client adds paginated roster loading, richer metrics, invite copy polish, and reuses the new pagination helpers (`apps/organizer-dashboard/src/app/manageTrails/page.tsx`).
+- Organizer dashboard now covers the remaining Trails & Activities interactions: trail detail hydration, attendee lookups, invite preview/acceptance, and organiser participation summaries (updated `apps/organizer-dashboard/src/services/trails.ts` and `apps/organizer-dashboard/src/app/manageTrails/page.tsx`).
+- Organiser dashboard now has client wrappers for leaderboard and attendance APIs, enabling system/org rankings and roster views (`apps/organizer-dashboard/src/services/leaderboard.ts`).
+- Insights page now surfaces live system and organisation leaderboards plus per-trail attendance using the new services (`apps/organizer-dashboard/src/app/insights/page.tsx`).

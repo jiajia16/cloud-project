@@ -10,6 +10,7 @@ import {
     listTrails,
     registerForTrail,
 } from "../services/trails.js";
+import { getMyAttendance } from "../services/leaderboard.js";
 
 const STATUS_LABELS = {
     pending: "Pending approval",
@@ -44,6 +45,7 @@ export default function MyTrails() {
     const [trails, setTrails] = useState([]);
     const [registrations, setRegistrations] = useState([]);
     const [confirmedTrails, setConfirmedTrails] = useState([]);
+    const [attendance, setAttendance] = useState([]);
     const [registeringTrailId, setRegisteringTrailId] = useState(null);
 
     const fetchAll = useCallback(
@@ -54,14 +56,16 @@ export default function MyTrails() {
             setLoading(true);
             setError("");
             try {
-                const [trailsRes, regsRes, confirmedRes] = await Promise.all([
+                const [trailsRes, regsRes, confirmedRes, attendanceRes] = await Promise.all([
                     listTrails({ accessToken, signal }),
                     getMyRegistrations({ accessToken, signal }),
                     getMyConfirmedTrails({ accessToken, signal }),
+                    getMyAttendance({ accessToken, signal }),
                 ]);
                 setTrails(trailsRes ?? []);
                 setRegistrations(regsRes ?? []);
                 setConfirmedTrails(confirmedRes ?? []);
+                setAttendance(attendanceRes ?? []);
             } catch (err) {
                 if (!(signal?.aborted)) {
                     setError(err?.message ?? "Failed to load your trails.");
@@ -114,6 +118,14 @@ export default function MyTrails() {
     const availableTrails = useMemo(
         () => trails.filter((trail) => !joinedTrailIds.has(trail.id)),
         [trails, joinedTrailIds]
+    );
+
+    const attendanceHistory = useMemo(
+        () =>
+            [...attendance].sort(
+                (a, b) => new Date(b.checked_at).getTime() - new Date(a.checked_at).getTime()
+            ),
+        [attendance]
     );
 
     const openTrailDetail = useCallback(
@@ -256,6 +268,38 @@ export default function MyTrails() {
                         ))}
                     </div>
                 )}
+
+                <SectionTitle title="Attendance History" />
+                <Card>
+                    {loading && attendance.length === 0 ? (
+                        <p className="text-sm text-gray-600">Loading your attendance…</p>
+                    ) : attendanceHistory.length === 0 ? (
+                        <p className="text-sm text-gray-600">
+                            No organiser-confirmed attendance recorded yet. Scan a QR code and check back!
+                        </p>
+                    ) : (
+                        <ul className="divide-y">
+                            {attendanceHistory.slice(0, 10).map((entry) => {
+                                const trail = trailsById.get(entry.trail_id);
+                                return (
+                                    <li key={entry.id} className="py-3 text-sm flex justify-between gap-3">
+                                        <div>
+                                            <p className="font-medium text-gray-800">
+                                                {trail?.title ?? `Trail ${entry.trail_id.slice(0, 8).toUpperCase()}`}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                {formatDateTime(entry.checked_at)}
+                                            </p>
+                                        </div>
+                                        <span className="text-xs text-gray-500">
+                                            Org {entry.org_id.slice(0, 8).toUpperCase()}
+                                        </span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
+                </Card>
 
                 <SectionTitle title="Available Trails to Join" />
                 {loading && trails.length === 0 ? (
