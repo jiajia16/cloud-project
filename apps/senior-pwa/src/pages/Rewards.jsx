@@ -297,7 +297,11 @@ export default function Rewards() {
                                         <li key={entry.id} className="py-3">
                                             <div className="flex justify-between text-sm">
                                                 <span className="font-medium text-gray-800">
-                                                    Voucher {entry.voucher_id.slice(0, 8).toUpperCase()}
+                                                    {entry.voucher_name
+                                                        ? entry.voucher_name
+                                                        : entry.voucher_code
+                                                            ? `Voucher ${entry.voucher_code.toUpperCase()}`
+                                                            : `Voucher ${entry.voucher_id.slice(0, 8).toUpperCase()}`}
                                                 </span>
                                                 <span className="text-xs uppercase text-gray-500">
                                                     {entry.status.replaceAll("_", " ")}

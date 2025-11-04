@@ -15,6 +15,7 @@ import {
     Users,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { resolveParticipantUserId } from "../../services/auth";
 import {
     acceptInvite,
     approveRegistration,
@@ -306,7 +307,7 @@ function ManualRegistrationForm({ onSubmit, submitting }: ManualRegistrationProp
         <form onSubmit={handleSubmit} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <label className="text-sm font-medium text-gray-700">
-                    Participant ID
+                    Participant NRIC or ID
                     <input
                         type="text"
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
@@ -879,15 +880,30 @@ export default function ManageTrailsPage() {
             }
             setManualRegistrationLoading(true);
             try {
+                const { userId: resolvedUserId, profile } = await resolveParticipantUserId({
+                    accessToken,
+                    identifier: userId,
+                });
+
+                if (
+                    profile &&
+                    selectedTrail &&
+                    !profile.org_ids.map(String).includes(String(selectedTrail.org_id))
+                ) {
+                    throw new Error(
+                        `${profile.name} is not assigned to this organisation yet. Ask an admin to link them before registering.`
+                    );
+                }
+
                 const created = await createRegistrationForTrail({
                     accessToken,
                     trailId: selectedTrail.id,
-                    payload: { user_id: userId, note: note || undefined },
+                    payload: { user_id: resolvedUserId, note: note || undefined },
                 });
                 await refreshRegistrations(selectedTrail.id);
                 setAlert({
                     type: "success",
-                    message: `Added attendee ${created.user_id} as ${REGISTRATION_STATUS_LABEL[created.status]}.`,
+                    message: `Added attendee ${profile?.name ?? created.user_id} as ${REGISTRATION_STATUS_LABEL[created.status]}.`,
                 });
             } finally {
                 setManualRegistrationLoading(false);

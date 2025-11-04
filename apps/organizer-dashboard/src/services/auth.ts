@@ -10,6 +10,14 @@ export type OrganiserProfile = {
   org_ids: string[];
 };
 
+export type UserSummary = {
+  id: string;
+  name: string;
+  nric: string;
+  role: "attend_user" | "organiser" | "admin";
+  org_ids: string[];
+};
+
 export type TokenPair = {
   access_token: string;
   refresh_token: string;
@@ -115,4 +123,127 @@ export async function fetchOrganiserProfile({
   });
 
   return handleResponse<OrganiserProfile>(response);
+}
+
+function looksLikeUuid(value: string) {
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidPattern.test(value.trim());
+}
+
+export async function lookupParticipantByNric({
+  accessToken,
+  nric,
+  signal,
+}: {
+  accessToken: string;
+  nric: string;
+  signal?: AbortSignal;
+}): Promise<UserSummary> {
+  const search = new URLSearchParams();
+  search.append("nric", nric.trim());
+  const response = await fetch(
+    `${AUTH_BASE_URL}/users/lookup?${search.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      credentials: "include",
+      signal,
+    }
+  );
+
+  return handleResponse<UserSummary>(response);
+}
+
+export async function resolveParticipantUserId({
+  accessToken,
+  identifier,
+  signal,
+}: {
+  accessToken: string;
+  identifier: string;
+  signal?: AbortSignal;
+}): Promise<{ userId: string; profile: UserSummary | null }> {
+  const trimmed = identifier.trim();
+  if (!trimmed) {
+    throw new Error("Participant identifier is required.");
+  }
+  if (looksLikeUuid(trimmed)) {
+    return { userId: trimmed, profile: null };
+  }
+  const profile = await lookupParticipantByNric({
+    accessToken,
+    nric: trimmed,
+    signal,
+  });
+  return { userId: profile.id, profile };
+}
+
+export type OrganisationSummary = {
+  id: string;
+  name: string;
+};
+
+export async function listOrganisations({
+  accessToken,
+  signal,
+}: {
+  accessToken: string;
+  signal?: AbortSignal;
+}): Promise<OrganisationSummary[]> {
+  const response = await fetch(`${AUTH_BASE_URL}/orgs`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    credentials: "include",
+    signal,
+  });
+
+  return handleResponse<OrganisationSummary[]>(response);
+}
+
+export async function listParticipants({
+  accessToken,
+  signal,
+}: {
+  accessToken: string;
+  signal?: AbortSignal;
+}): Promise<UserSummary[]> {
+  const response = await fetch(`${AUTH_BASE_URL}/users/participants`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    credentials: "include",
+    signal,
+  });
+
+  return handleResponse<UserSummary[]>(response);
+}
+
+export async function assignParticipantToOrganisation({
+  accessToken,
+  orgId,
+  userId,
+}: {
+  accessToken: string;
+  orgId: string;
+  userId: string;
+}): Promise<void> {
+  const response = await fetch(`${AUTH_BASE_URL}/orgs/${orgId}/members`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ user_id: userId }),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    await handleResponse<unknown>(response);
+  }
 }
