@@ -30,3 +30,12 @@
 - Organizer dashboard now covers the remaining Trails & Activities interactions: trail detail hydration, attendee lookups, invite preview/acceptance, and organiser participation summaries (updated `apps/organizer-dashboard/src/services/trails.ts` and `apps/organizer-dashboard/src/app/manageTrails/page.tsx`).
 - Organiser dashboard now has client wrappers for leaderboard and attendance APIs, enabling system/org rankings and roster views (`apps/organizer-dashboard/src/services/leaderboard.ts`).
 - Insights page now surfaces live system and organisation leaderboards plus per-trail attendance using the new services (`apps/organizer-dashboard/src/app/insights/page.tsx`).
+- Senior PWA shows an organisation assignment banner for unassigned users and treats cancelled registrations as rejoinable (updated `apps/senior-pwa/src/pages/Home.jsx`, `MyTrails.jsx`, and `TrailDetail.jsx`).
+- Organiser dashboard reuses NRIC lookups across attendee status checks and points adjustments, including participant context in results (`apps/organizer-dashboard/src/app/manageTrails/page.tsx`, `src/app/points/page.tsx`, `src/services/auth.ts`).
+- Points dashboard now lists organisation-wide balances with search and pagination, powered by new client helpers (`apps/organizer-dashboard/src/app/points/page.tsx`, `src/services/points.ts`).
+- Manage Trails roster and registration tables now surface participant names, NRICs, and IDs using a cached attendee directory, and related alerts reference friendly identifiers (`apps/organizer-dashboard/src/app/manageTrails/page.tsx`).
+- Organizer dashboard navigation now links directly to the points workspace (`apps/organizer-dashboard/src/app/layout.tsx`).
+- Points workspace now resolves participant names/NRICs for balances and ledger entries using the shared attendee directory cache (`apps/organizer-dashboard/src/app/points/page.tsx`).
+- Organiser dashboard ledger view now surfaces organisation-wide transactions with participant IDs, error messaging, and load-more controls (apps/organizer-dashboard/src/app/points/page.tsx).
+- Senior PWA auth context periodically re-fetches /users/me so new organisation assignments appear without a manual relog (apps/senior-pwa/src/contexts/AuthContext.jsx).
+- Senior PWA home screen now lets seniors redeem organiser invite codes with live preview and trail enrollment (`apps/senior-pwa/src/services/trails.js`, `apps/senior-pwa/src/pages/Home.jsx`).

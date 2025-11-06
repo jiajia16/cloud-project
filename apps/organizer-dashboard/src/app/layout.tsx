@@ -35,6 +35,7 @@ function Shell({ children }: { children: ReactNode }) {
       { label: "Overview", href: "/" },
       { label: "Manage Trails", href: "/manageTrails" },
       { label: "Participants", href: "/participants" },
+      { label: "Points", href: "/points" },
       { label: "Reports", href: "/reports" },
       { label: "Insights", href: "/insights" },
     ],

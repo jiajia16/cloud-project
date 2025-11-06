@@ -18,6 +18,7 @@ const STORAGE_KEY = "silvertrails-auth";
 const DEFAULT_EXPIRY_SECONDS = 15 * 60;
 const REFRESH_BUFFER_MS = 60_000;
 const MIN_REFRESH_DELAY_MS = 5_000;
+const PROFILE_REFRESH_INTERVAL_MS = 60_000;
 
 const initialState = { user: null, tokens: null, expiresAt: null };
 
@@ -71,6 +72,7 @@ export function AuthProvider({ children }) {
     const [loggingOut, setLoggingOut] = useState(false);
     const refreshTimerRef = useRef(null);
     const isRefreshingRef = useRef(false);
+    const profileFetchInFlightRef = useRef(false);
 
     const clearRefreshTimer = useCallback(() => {
         if (refreshTimerRef.current) {
@@ -203,14 +205,19 @@ export function AuthProvider({ children }) {
     }, [state.tokens?.access_token, state.expiresAt, scheduleRefresh, clearRefreshTimer]);
 
     useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
         if (!state.tokens?.access_token) {
             return;
         }
         let cancelled = false;
-        if (state.user) {
-            return;
-        }
-        (async () => {
+
+        const loadProfile = async () => {
+            if (profileFetchInFlightRef.current) {
+                return;
+            }
+            profileFetchInFlightRef.current = true;
             try {
                 const profile = await fetchCurrentUser({ accessToken: state.tokens.access_token });
                 if (!cancelled) {
@@ -220,14 +227,31 @@ export function AuthProvider({ children }) {
                     }));
                 }
             } catch (err) {
-                console.warn("Failed to fetch current user profile", err);
+                if (!cancelled) {
+                    console.warn("Failed to fetch current user profile", err);
+                }
+            } finally {
+                profileFetchInFlightRef.current = false;
             }
-        })();
+        };
+
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible") {
+                loadProfile();
+            }
+        };
+
+        loadProfile();
+
+        const intervalId = window.setInterval(loadProfile, PROFILE_REFRESH_INTERVAL_MS);
+        document.addEventListener("visibilitychange", handleVisibility);
 
         return () => {
             cancelled = true;
+            window.clearInterval(intervalId);
+            document.removeEventListener("visibilitychange", handleVisibility);
         };
-    }, [state.tokens?.access_token, state.user]);
+    }, [state.tokens?.access_token]);
 
     const contextValue = useMemo(
         () => ({

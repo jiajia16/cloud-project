@@ -21,6 +21,8 @@ const STATUS_LABELS = {
     waitlisted: "Waitlisted",
 };
 
+const ACTIVE_REGISTRATION_STATUSES = new Set(["pending", "approved", "confirmed", "waitlisted"]);
+
 function formatDateTime(value) {
     if (!value) {
         return "TBC";
@@ -111,10 +113,15 @@ export default function MyTrails() {
     const progressPct =
         totalRegistrations === 0 ? 0 : Math.round((confirmedCount / totalRegistrations) * 100);
 
-    const joinedTrailIds = useMemo(
-        () => new Set(enrichedRegistrations.map((reg) => reg.trail_id)),
-        [enrichedRegistrations]
-    );
+    const joinedTrailIds = useMemo(() => {
+        const ids = new Set();
+        enrichedRegistrations.forEach((reg) => {
+            if (ACTIVE_REGISTRATION_STATUSES.has(reg.status)) {
+                ids.add(reg.trail_id);
+            }
+        });
+        return ids;
+    }, [enrichedRegistrations]);
     const availableTrails = useMemo(
         () => trails.filter((trail) => !joinedTrailIds.has(trail.id)),
         [trails, joinedTrailIds]

@@ -18,6 +18,8 @@ import {
     getMyConfirmedTrails,
     getMyRegistrations,
     listTrails,
+    previewInvite,
+    acceptInvite,
 } from "../services/trails.js";
 
 const HIGHLIGHTS = [
@@ -40,6 +42,8 @@ const HIGHLIGHTS = [
         color: "bg-cyan-300",
     },
 ];
+
+const ACTIVE_REGISTRATION_STATUSES = new Set(["pending", "approved", "confirmed", "waitlisted"]);
 
 function formatDate(value) {
     if (!value) {
@@ -65,6 +69,22 @@ export default function Home() {
     const [registrations, setRegistrations] = useState([]);
     const [confirmedTrails, setConfirmedTrails] = useState([]);
     const [availableTrails, setAvailableTrails] = useState([]);
+    const [inviteToken, setInviteToken] = useState("");
+    const [invitePreview, setInvitePreview] = useState(null);
+    const [inviteLoading, setInviteLoading] = useState(false);
+    const [inviteSubmitting, setInviteSubmitting] = useState(false);
+    const [inviteError, setInviteError] = useState("");
+    const [inviteSuccess, setInviteSuccess] = useState("");
+
+    const inviteTrail = useMemo(() => {
+        if (!invitePreview) {
+            return null;
+        }
+        if (invitePreview.trail) {
+            return invitePreview.trail;
+        }
+        return invitePreview;
+    }, [invitePreview]);
 
     const fetchData = useCallback(
         async (signal) => {
@@ -84,7 +104,11 @@ export default function Home() {
                 const trails = trailsRes ?? [];
                 const confirmed = confirmedRes ?? [];
 
-                const joinedIds = new Set(regs.map((reg) => reg.trail_id));
+                const joinedIds = new Set(
+                    regs
+                        .filter((reg) => ACTIVE_REGISTRATION_STATUSES.has(reg.status))
+                        .map((reg) => reg.trail_id)
+                );
                 const upcoming = trails
                     .filter((trail) => !joinedIds.has(trail.id))
                     .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
@@ -105,6 +129,67 @@ export default function Home() {
         [accessToken]
     );
 
+    const handlePreviewInvite = useCallback(async () => {
+        if (!accessToken) {
+            setInviteError("Sign in to use an invite code.");
+            return;
+        }
+        const trimmed = inviteToken.trim();
+        if (!trimmed) {
+            setInviteError("Enter an invite code first.");
+            return;
+        }
+        setInviteLoading(true);
+        setInviteSubmitting(false);
+        setInviteError("");
+        setInviteSuccess("");
+        setInvitePreview(null);
+        try {
+            const preview = await previewInvite({ accessToken, token: trimmed });
+            setInvitePreview(preview ?? null);
+        } catch (err) {
+            setInviteError(err?.message ?? "Unable to preview invite.");
+        } finally {
+            setInviteLoading(false);
+        }
+    }, [accessToken, inviteToken]);
+
+    const handleAcceptInvite = useCallback(async () => {
+        if (!accessToken) {
+            setInviteError("Sign in to use an invite code.");
+            return;
+        }
+        const trimmed = inviteToken.trim();
+        if (!trimmed) {
+            setInviteError("Enter an invite code first.");
+            return;
+        }
+        if (!invitePreview) {
+            setInviteError("Preview the invite before joining.");
+            return;
+        }
+        setInviteSubmitting(true);
+        setInviteError("");
+        try {
+            await acceptInvite({ accessToken, token: trimmed });
+            const joinedTitle =
+                invitePreview?.trail?.title ??
+                (typeof invitePreview?.title === "string" ? invitePreview.title : undefined);
+            setInviteSuccess(
+                `You're registered for ${joinedTitle ?? "the activity"}!`
+            );
+            setInvitePreview(null);
+            setInviteToken("");
+            await fetchData();
+        } catch (err) {
+            setInviteError(err?.message ?? "Unable to join with this invite.");
+        } finally {
+            setInviteSubmitting(false);
+        }
+    }, [accessToken, fetchData, invitePreview, inviteToken]);
+
+
+
     useEffect(() => {
         if (!accessToken) {
             return;
@@ -121,6 +206,8 @@ export default function Home() {
     const totalRegistrations = registrations.length;
     const progressPct = totalRegistrations === 0 ? 0 : Math.round((confirmedCount / totalRegistrations) * 100);
     const upcomingTrails = useMemo(() => availableTrails.slice(0, 4), [availableTrails]);
+    const pendingOrgAssignment =
+        !!user && (!Array.isArray(user.org_ids) || user.org_ids.length === 0);
 
     const handleLogout = useCallback(async () => {
         await logout();
@@ -157,6 +244,19 @@ export default function Home() {
                     </button>
                 </div>
             </div>
+
+            {pendingOrgAssignment && (
+                <div
+                    className="w-full max-w-3xl mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-6 py-4 text-amber-900 shadow-sm"
+                    role="alert"
+                >
+                    <h2 className="text-lg font-semibold">Almost there!</h2>
+                    <p className="mt-1 text-sm leading-5">
+                        You haven&apos;t been assigned to an organisation yet. Please contact your organiser so you
+                        can start registering for activities and collecting rewards.
+                    </p>
+                </div>
+            )}
 
             <div className="w-full max-w-3xl mt-6 bg-gradient-to-r from-cyan-400 to-teal-400 text-white p-6 rounded-2xl shadow-md">
                 <h2 className="text-2xl font-bold">Welcome back, {user?.name || "Friend"}!</h2>
@@ -216,6 +316,66 @@ export default function Home() {
                     desc="Join community activities"
                     onClick={() => alert("Feature coming soon!")}
                 />
+            </div>
+
+            <div className="w-full max-w-3xl mt-6 bg-white p-5 rounded-2xl shadow-sm">
+                <h3 className="text-gray-800 font-bold text-lg">Have an invite code?</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                    Enter the code your organiser shared to join an activity instantly.
+                </p>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <input
+                        type="text"
+                        value={inviteToken}
+                        onChange={(event) => {
+                            setInviteToken(event.target.value);
+                            setInviteError("");
+                            setInviteSuccess("");
+                            setInvitePreview(null);
+                        }}
+                        className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-200"
+                        placeholder="Enter invite code"
+                        autoComplete="off"
+                    />
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={handlePreviewInvite}
+                            disabled={inviteLoading}
+                            className="px-4 py-2 rounded-xl border border-cyan-300 text-sm font-semibold text-cyan-700 hover:bg-cyan-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {inviteLoading ? "Checking..." : "Preview"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleAcceptInvite}
+                            disabled={inviteSubmitting || !invitePreview}
+                            className="px-4 py-2 rounded-xl bg-cyan-500 text-white text-sm font-semibold hover:bg-cyan-600 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+                        >
+                            {inviteSubmitting ? "Joining..." : "Join"}
+                        </button>
+                    </div>
+                </div>
+                {inviteError && <p className="mt-3 text-sm text-rose-600">{inviteError}</p>}
+                {inviteSuccess && <p className="mt-3 text-sm text-emerald-600">{inviteSuccess}</p>}
+                {invitePreview && inviteTrail ? (
+                    <div className="mt-4 rounded-xl border border-cyan-100 bg-cyan-50 p-4 text-sm text-gray-700">
+                        <p className="text-base font-semibold text-gray-800">{inviteTrail.title}</p>
+                        <p className="mt-1">{inviteTrail.description ?? "Join this community activity."}</p>
+                        <div className="mt-3 space-y-1">
+                            <div className="flex items-center gap-2 text-gray-600">
+                                <CalendarRange className="w-4 h-4 text-cyan-600" />
+                                <span>
+                                    {formatDate(inviteTrail.starts_at)} -> {formatDate(inviteTrail.ends_at)}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-600">
+                                <MapPin className="w-4 h-4 text-cyan-600" />
+                                <span>{inviteTrail.location ?? "Location TBC"}</span>
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
             </div>
 
             <div className="w-full max-w-3xl mt-6 bg-white p-5 rounded-2xl shadow-sm">

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Card } from "@silvertrails/ui";
 import { formatPoints } from "@silvertrails/utils";
 import {
@@ -12,22 +12,25 @@ import {
     Edit3,
     X,
     History,
+    Users,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { listParticipants, type UserSummary } from "../../services/auth";
 import {
     adjustPoints,
     createVoucher,
     getMyPointsBalance,
-    getMyPointsLedger,
+    listOrgBalances,
+    listOrgLedger,
     listVouchers,
     updateVoucher,
+    type OrgBalance,
+    type OrgLedgerEntry,
     type PointsBalance,
-    type PointsLedgerEntry,
     type Voucher,
     type VoucherCreatePayload,
     type VoucherUpdatePayload,
 } from "../../services/points";
-
 type AlertState = { type: "success" | "error"; message: string } | null;
 type VoucherEditorState = {
     mode: "create" | "edit";
@@ -36,7 +39,7 @@ type VoucherEditorState = {
 };
 
 type AdjustInput = {
-    userId: string;
+    identifier: string;
     delta: number;
     reason?: string;
 };
@@ -286,7 +289,7 @@ function AdjustPointsForm({ submitting, onSubmit }: AdjustPointsFormProps) {
 
         try {
             await onSubmit({
-                userId: trimmedId,
+                identifier: trimmedId,
                 delta,
                 reason: trimmedReason ? trimmedReason : undefined,
             });
@@ -312,7 +315,7 @@ function AdjustPointsForm({ submitting, onSubmit }: AdjustPointsFormProps) {
                         value={memberId}
                         onChange={(event) => setMemberId(event.target.value)}
                         className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
-                        placeholder="NRIC / User ID"
+                        placeholder="NRIC or User ID"
                         required
                     />
                 </label>
@@ -379,7 +382,6 @@ export default function PointsPage() {
     }, [orgIds, selectedOrgId]);
 
     const [balance, setBalance] = useState<PointsBalance | null>(null);
-    const [ledger, setLedger] = useState<PointsLedgerEntry[]>([]);
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
 
     const [alert, setAlert] = useState<AlertState>(null);
@@ -393,6 +395,143 @@ export default function PointsPage() {
         open: false,
         voucher: null,
     });
+    const ORG_BALANCES_PAGE_SIZE = 50;
+    const ORG_LEDGER_PAGE_SIZE = 50;
+    const [orgBalances, setOrgBalances] = useState<OrgBalance[]>([]);
+    const [orgBalancesTotal, setOrgBalancesTotal] = useState(0);
+    const [orgBalancesHasMore, setOrgBalancesHasMore] = useState(false);
+    const [orgBalancesLoading, setOrgBalancesLoading] = useState(false);
+    const [orgBalancesLoadingMore, setOrgBalancesLoadingMore] = useState(false);
+    const [orgBalancesError, setOrgBalancesError] = useState<string | null>(null);
+    const [orgBalanceSearchInput, setOrgBalanceSearchInput] = useState("");
+    const [orgBalanceSearch, setOrgBalanceSearch] = useState("");
+    const orgBalancesLengthRef = useRef(0);
+    const [orgLedger, setOrgLedger] = useState<OrgLedgerEntry[]>([]);
+    const [orgLedgerTotal, setOrgLedgerTotal] = useState(0);
+    const [orgLedgerHasMore, setOrgLedgerHasMore] = useState(false);
+    const [orgLedgerLoading, setOrgLedgerLoading] = useState(false);
+    const [orgLedgerLoadingMore, setOrgLedgerLoadingMore] = useState(false);
+    const [orgLedgerError, setOrgLedgerError] = useState<string | null>(null);
+    const [orgLedgerSearchInput, setOrgLedgerSearchInput] = useState("");
+    const [orgLedgerSearch, setOrgLedgerSearch] = useState("");
+    const orgLedgerLengthRef = useRef(0);
+    const [participantDirectory, setParticipantDirectory] = useState<Record<string, UserSummary>>({});
+
+    const loadOrgBalances = useCallback(
+        async ({
+            append = false,
+            signal,
+            identifier,
+        }: { append?: boolean; signal?: AbortSignal; identifier?: string } = {}) => {
+            if (!accessToken || !selectedOrgId) {
+                return false;
+            }
+
+            if (!append) {
+                setOrgBalancesLoading(true);
+                setOrgBalancesError(null);
+                orgBalancesLengthRef.current = 0;
+            } else {
+                setOrgBalancesLoadingMore(true);
+            }
+
+            const offset = append ? orgBalancesLengthRef.current : 0;
+            const activeIdentifier = identifier ?? orgBalanceSearch;
+
+            try {
+                const page = await listOrgBalances({
+                    accessToken,
+                    orgId: selectedOrgId,
+                    limit: ORG_BALANCES_PAGE_SIZE,
+                    offset,
+                    identifier: activeIdentifier,
+                    signal,
+                });
+
+                if (signal?.aborted) {
+                    return false;
+                }
+
+                setOrgBalances((prev) => (append ? [...prev, ...page.items] : page.items));
+                orgBalancesLengthRef.current = offset + page.items.length;
+                setOrgBalancesTotal(page.total);
+                setOrgBalancesHasMore(page.has_more);
+                return true;
+            } catch (error) {
+                if (!(signal?.aborted)) {
+                    setOrgBalancesError(getErrorMessage(error));
+                }
+                return false;
+            } finally {
+                if (!(signal?.aborted)) {
+                    if (append) {
+                        setOrgBalancesLoadingMore(false);
+                    } else {
+                        setOrgBalancesLoading(false);
+                    }
+                }
+            }
+        },
+        [accessToken, selectedOrgId, orgBalanceSearch]
+    );
+
+    const loadOrgLedger = useCallback(
+        async ({
+            append = false,
+            signal,
+            identifier,
+        }: { append?: boolean; signal?: AbortSignal; identifier?: string } = {}) => {
+            if (!accessToken || !selectedOrgId) {
+                return false;
+            }
+
+            if (!append) {
+                setOrgLedgerLoading(true);
+                setOrgLedgerError(null);
+                orgLedgerLengthRef.current = 0;
+            } else {
+                setOrgLedgerLoadingMore(true);
+            }
+
+            const offset = append ? orgLedgerLengthRef.current : 0;
+            const activeIdentifier = identifier ?? orgLedgerSearch;
+
+            try {
+                const page = await listOrgLedger({
+                    accessToken,
+                    orgId: selectedOrgId,
+                    limit: ORG_LEDGER_PAGE_SIZE,
+                    offset,
+                    identifier: activeIdentifier,
+                    signal,
+                });
+
+                if (signal?.aborted) {
+                    return false;
+                }
+
+                setOrgLedger((prev) => (append ? [...prev, ...page.items] : page.items));
+                orgLedgerLengthRef.current = offset + page.items.length;
+                setOrgLedgerTotal(page.total);
+                setOrgLedgerHasMore(page.has_more);
+                return true;
+            } catch (error) {
+                if (!(signal?.aborted)) {
+                    setOrgLedgerError(getErrorMessage(error));
+                }
+                return false;
+            } finally {
+                if (!(signal?.aborted)) {
+                    if (append) {
+                        setOrgLedgerLoadingMore(false);
+                    } else {
+                        setOrgLedgerLoading(false);
+                    }
+                }
+            }
+        },
+        [accessToken, selectedOrgId, orgLedgerSearch]
+    );
 
     const refreshData = useCallback(
         async ({ signal, silently }: RefreshOptions = {}) => {
@@ -403,18 +542,20 @@ export default function PointsPage() {
                 setIsLoading(true);
             }
             try {
-                const [balanceRes, ledgerRes, vouchersRes] = await Promise.all([
+                const [balanceRes, vouchersRes] = await Promise.all([
                     getMyPointsBalance({ accessToken, orgId: selectedOrgId, signal }),
-                    getMyPointsLedger({ accessToken, orgId: selectedOrgId, signal }),
                     listVouchers({ accessToken, orgId: selectedOrgId, signal }),
                 ]);
                 if (signal?.aborted) {
                     return false;
                 }
                 setBalance(balanceRes);
-                setLedger(Array.isArray(ledgerRes) ? ledgerRes : []);
                 setVouchers(Array.isArray(vouchersRes) ? vouchersRes : []);
-                return true;
+                const [balancesSuccess, ledgerSuccess] = await Promise.all([
+                    loadOrgBalances({ signal }),
+                    loadOrgLedger({ signal }),
+                ]);
+                return balancesSuccess && ledgerSuccess;
             } catch (error) {
                 if (!(signal?.aborted)) {
                     setAlert({ type: "error", message: getErrorMessage(error) });
@@ -426,7 +567,7 @@ export default function PointsPage() {
                 }
             }
         },
-        [accessToken, selectedOrgId]
+        [accessToken, selectedOrgId, loadOrgBalances, loadOrgLedger]
     );
 
     useEffect(() => {
@@ -438,12 +579,55 @@ export default function PointsPage() {
         return () => controller.abort();
     }, [accessToken, selectedOrgId, refreshData]);
 
-    const sortedLedger = useMemo(
+    useEffect(() => {
+        if (!accessToken) {
+            setParticipantDirectory({});
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const participants = await listParticipants({ accessToken });
+                if (!cancelled) {
+                    setParticipantDirectory(() => {
+                        const next: Record<string, UserSummary> = {};
+                        participants.forEach((participant) => {
+                            next[participant.id] = participant;
+                        });
+                        return next;
+                    });
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    console.warn("Failed to load participant directory", error);
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [accessToken]);
+
+    const describeParticipant = useCallback(
+        (userId: string) => {
+            const profile = participantDirectory[userId];
+            if (!profile) {
+                return { primary: userId, secondary: null, tertiary: null };
+            }
+            const primary = profile.name || profile.nric || profile.id;
+            const secondary = profile.nric && profile.nric !== primary ? profile.nric : null;
+            const tertiary = profile.id !== primary ? profile.id : null;
+            return { primary, secondary, tertiary };
+        },
+        [participantDirectory]
+    );
+
+    const sortedOrgLedger = useMemo(
         () =>
-            [...ledger].sort(
+            [...orgLedger].sort(
                 (a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
             ),
-        [ledger]
+        [orgLedger]
     );
 
     const sortedVouchers = useMemo(
@@ -472,8 +656,68 @@ export default function PointsPage() {
         }
     }, [accessToken, selectedOrgId, refreshData]);
 
+    const handleOrgBalanceSearchSubmit = useCallback(
+        async (event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            if (!accessToken || !selectedOrgId) {
+                setAlert({ type: "error", message: "Select an organisation before searching." });
+                return;
+            }
+            const trimmed = orgBalanceSearchInput.trim();
+            setOrgBalanceSearch(trimmed);
+            await loadOrgBalances({ append: false, identifier: trimmed });
+        },
+        [accessToken, selectedOrgId, orgBalanceSearchInput, loadOrgBalances]
+    );
+
+    const handleOrgBalanceSearchReset = useCallback(async () => {
+        if (!accessToken || !selectedOrgId) {
+            return;
+        }
+        setOrgBalanceSearchInput("");
+        setOrgBalanceSearch("");
+        await loadOrgBalances({ append: false, identifier: "" });
+    }, [accessToken, selectedOrgId, loadOrgBalances]);
+
+    const handleLoadMoreBalances = useCallback(async () => {
+        if (!orgBalancesHasMore || orgBalancesLoadingMore) {
+            return;
+        }
+        await loadOrgBalances({ append: true });
+    }, [orgBalancesHasMore, orgBalancesLoadingMore, loadOrgBalances]);
+
+    const handleOrgLedgerSearchSubmit = useCallback(
+        async (event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            if (!accessToken || !selectedOrgId) {
+                setAlert({ type: "error", message: "Select an organisation before searching." });
+                return;
+            }
+            const trimmed = orgLedgerSearchInput.trim();
+            setOrgLedgerSearch(trimmed);
+            await loadOrgLedger({ append: false, identifier: trimmed });
+        },
+        [accessToken, selectedOrgId, orgLedgerSearchInput, loadOrgLedger]
+    );
+
+    const handleOrgLedgerSearchReset = useCallback(async () => {
+        if (!accessToken || !selectedOrgId) {
+            return;
+        }
+        setOrgLedgerSearchInput("");
+        setOrgLedgerSearch("");
+        await loadOrgLedger({ append: false, identifier: "" });
+    }, [accessToken, selectedOrgId, loadOrgLedger]);
+
+    const handleLoadMoreLedger = useCallback(async () => {
+        if (!orgLedgerHasMore || orgLedgerLoadingMore) {
+            return;
+        }
+        await loadOrgLedger({ append: true });
+    }, [orgLedgerHasMore, orgLedgerLoadingMore, loadOrgLedger]);
+
     const handleAdjustPoints = useCallback(
-        async ({ userId, delta, reason }: AdjustInput) => {
+        async ({ identifier, delta, reason }: AdjustInput) => {
             if (!accessToken || !selectedOrgId) {
                 throw new Error("You must be signed in to adjust points.");
             }
@@ -482,7 +726,7 @@ export default function PointsPage() {
                 await adjustPoints({
                     accessToken,
                     orgId: selectedOrgId,
-                    payload: { userId, delta, reason },
+                    payload: { identifier, delta, reason },
                 });
                 await refreshData({ silently: true });
                 setAlert({ type: "success", message: "Points updated successfully." });
@@ -590,7 +834,17 @@ export default function PointsPage() {
                             <label className="block text-xs uppercase text-gray-500">Organisation</label>
                             <select
                                 value={selectedOrgId}
-                                onChange={(event) => setSelectedOrgId(event.target.value)}
+                                onChange={(event) => {
+                                    const nextOrgId = event.target.value;
+                                    setSelectedOrgId(nextOrgId);
+                                    setOrgBalanceSearchInput("");
+                                    setOrgBalanceSearch("");
+                                    orgBalancesLengthRef.current = 0;
+                                    setOrgBalances([]);
+                                    setOrgBalancesTotal(0);
+                                    setOrgBalancesHasMore(false);
+                                    setOrgBalancesError(null);
+                                }}
                                 className="mt-1 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
                             >
                                 {orgIds.map((orgId) => (
@@ -672,58 +926,257 @@ export default function PointsPage() {
                         </Card>
                     </div>
 
+                    <Card className="p-6 space-y-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 text-teal-600">
+                                <Users className="h-5 w-5" />
+                                <span className="text-sm font-semibold uppercase">Organisation Balances</span>
+                            </div>
+                            <form
+                                className="flex flex-wrap items-center gap-2"
+                                onSubmit={handleOrgBalanceSearchSubmit}
+                            >
+                                <input
+                                    type="text"
+                                    value={orgBalanceSearchInput}
+                                    onChange={(event) => setOrgBalanceSearchInput(event.target.value)}
+                                    className="w-48 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
+                                    placeholder="NRIC or User ID"
+                                />
+                                <Button
+                                    type="submit"
+                                    className="flex items-center gap-2"
+                                    disabled={orgBalancesLoading && orgBalances.length === 0}
+                                >
+                                    {orgBalancesLoading && orgBalances.length === 0 && (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    )}
+                                    Search
+                                </Button>
+                                {orgBalanceSearch && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        onClick={handleOrgBalanceSearchReset}
+                                        disabled={orgBalancesLoading}
+                                    >
+                                        Clear
+                                    </Button>
+                                )}
+                            </form>
+                        </div>
+                        {orgBalancesError && (
+                            <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+                                {orgBalancesError}
+                            </div>
+                        )}
+                        {orgBalancesLoading && orgBalances.length === 0 ? (
+                            <p className="text-sm text-gray-600">Loading organisation balances.</p>
+                        ) : orgBalances.length === 0 ? (
+                            <p className="text-sm text-gray-600">
+                                {orgBalanceSearch
+                                    ? "No participants matched your search."
+                                    : "No point balances recorded for this organisation yet."}
+                            </p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                    <thead>
+                                        <tr className="text-left text-xs font-semibold uppercase text-gray-500">
+                                            <th className="px-3 py-2">Participant</th>
+                                            <th className="px-3 py-2">Balance</th>
+                                            <th className="px-3 py-2">Updated</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {orgBalances.map((entry) => {
+                                            const participant = describeParticipant(entry.user_id);
+                                            return (
+                                                <tr
+                                                    key={`${entry.user_id}-${entry.org_id}`}
+                                                    className="align-top"
+                                                >
+                                                    <td className="px-3 py-3 text-gray-800">
+                                                        <div className="font-semibold">
+                                                            {participant.primary}
+                                                        </div>
+                                                        {participant.secondary ? (
+                                                            <div className="text-xs text-gray-600">
+                                                                {participant.secondary}
+                                                            </div>
+                                                        ) : null}
+                                                        {participant.tertiary ? (
+                                                            <div className="text-[11px] font-mono text-gray-400 break-all">
+                                                                {participant.tertiary}
+                                                            </div>
+                                                        ) : null}
+                                                    </td>
+                                                    <td className="px-3 py-3 font-semibold text-gray-900">
+                                                        {formatPoints(entry.balance)}
+                                                    </td>
+                                                    <td className="px-3 py-3 text-gray-500">
+                                                        {entry.updated_at
+                                                            ? formatDateTime(entry.updated_at)
+                                                            : "-"}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500">
+                            <span>
+                                Showing {orgBalances.length} of {orgBalancesTotal} participants
+                                {orgBalanceSearch ? ` (filter: ${orgBalanceSearch})` : ""}.
+                            </span>
+                            {orgBalancesHasMore && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleLoadMoreBalances}
+                                    disabled={orgBalancesLoadingMore}
+                                    className="flex items-center gap-2"
+                                >
+                                    {orgBalancesLoadingMore && (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    )}
+                                    Load more
+                                </Button>
+                            )}
+                        </div>
+                    </Card>
+
                     <Card className="p-6 space-y-6">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="flex items-center gap-2 text-teal-600">
                                 <History className="h-5 w-5" />
                                 <span className="text-sm font-semibold uppercase">Points Ledger</span>
                             </div>
-                            <p className="text-xs text-gray-500">
-                                Showing latest {sortedLedger.length} entries for this organisation.
-                            </p>
+                            <form
+                                className="flex flex-wrap items-center gap-2"
+                                onSubmit={handleOrgLedgerSearchSubmit}
+                            >
+                                <input
+                                    type="text"
+                                    value={orgLedgerSearchInput}
+                                    onChange={(event) => setOrgLedgerSearchInput(event.target.value)}
+                                    className="w-48 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
+                                    placeholder="NRIC or User ID"
+                                />
+                                <Button
+                                    type="submit"
+                                    className="flex items-center gap-2"
+                                    disabled={orgLedgerLoading && orgLedger.length === 0}
+                                >
+                                    {orgLedgerLoading && orgLedger.length === 0 && (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    )}
+                                    Search
+                                </Button>
+                                {orgLedgerSearch && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        onClick={handleOrgLedgerSearchReset}
+                                        disabled={orgLedgerLoading}
+                                    >
+                                        Clear
+                                    </Button>
+                                )}
+                            </form>
                         </div>
-                        {isLoading && sortedLedger.length === 0 ? (
-                            <p className="text-sm text-gray-600">Loading ledger…</p>
-                        ) : sortedLedger.length === 0 ? (
-                            <p className="text-sm text-gray-600">No ledger entries recorded yet.</p>
+                        {orgLedgerError && (
+                            <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+                                {orgLedgerError}
+                            </div>
+                        )}
+                        {orgLedgerLoading && orgLedger.length === 0 ? (
+                            <p className="text-sm text-gray-600">Loading ledger entries.</p>
+                        ) : orgLedger.length === 0 ? (
+                            <p className="text-sm text-gray-600">
+                                {orgLedgerSearch
+                                    ? "No transactions matched your search."
+                                    : "No ledger entries recorded yet."}
+                            </p>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                                     <thead>
                                         <tr className="text-left text-xs font-semibold uppercase text-gray-500">
                                             <th className="px-3 py-2">When</th>
+                                            <th className="px-3 py-2">Participant</th>
                                             <th className="px-3 py-2">Change</th>
                                             <th className="px-3 py-2">Reason</th>
                                             <th className="px-3 py-2">Details</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {sortedLedger.map((entry) => (
-                                            <tr key={entry.id} className="align-top">
-                                                <td className="px-3 py-3 text-gray-700">
-                                                    {formatDateTime(entry.occurred_at)}
-                                                </td>
-                                                <td
-                                                    className={`px-3 py-3 font-semibold ${
-                                                        entry.delta >= 0
-                                                            ? "text-teal-600"
-                                                            : "text-rose-600"
-                                                    }`}
-                                                >
-                                                    {formatDelta(entry.delta)}
-                                                </td>
-                                                <td className="px-3 py-3 text-gray-700">
-                                                    {entry.reason ?? "—"}
-                                                </td>
-                                                <td className="px-3 py-3 text-gray-500">
-                                                    {entry.details ?? ""}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {sortedOrgLedger.map((entry) => {
+                                            const participant = describeParticipant(entry.user_id);
+                                            return (
+                                                <tr key={entry.id} className="align-top">
+                                                    <td className="px-3 py-3 text-gray-700">
+                                                        {formatDateTime(entry.occurred_at)}
+                                                    </td>
+                                                    <td className="px-3 py-3 text-gray-800">
+                                                        <div className="font-semibold">
+                                                            {participant.primary}
+                                                        </div>
+                                                        {participant.secondary ? (
+                                                            <div className="text-xs text-gray-600">
+                                                                {participant.secondary}
+                                                            </div>
+                                                        ) : null}
+                                                        {participant.tertiary ? (
+                                                            <div className="text-[11px] font-mono text-gray-400 break-all">
+                                                                {participant.tertiary}
+                                                            </div>
+                                                        ) : null}
+                                                    </td>
+                                                    <td
+                                                        className={`px-3 py-3 font-semibold ${
+                                                            entry.delta >= 0
+                                                                ? "text-teal-600"
+                                                                : "text-rose-600"
+                                                        }`}
+                                                    >
+                                                        {formatDelta(entry.delta)}
+                                                    </td>
+                                                    <td className="px-3 py-3 text-gray-700">
+                                                        {entry.reason ?? "-"}
+                                                    </td>
+                                                    <td className="px-3 py-3 text-gray-500">
+                                                        {entry.details ?? ""}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
                         )}
+                        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500">
+                            <span>
+                                Showing {orgLedger.length} of {orgLedgerTotal} transactions
+                                {orgLedgerSearch ? ` (filter: ${orgLedgerSearch})` : ""}.
+                            </span>
+                            {orgLedgerHasMore && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleLoadMoreLedger}
+                                    disabled={orgLedgerLoadingMore}
+                                    className="flex items-center gap-2"
+                                >
+                                    {orgLedgerLoadingMore && (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    )}
+                                    Load more
+                                </Button>
+                            )}
+                        </div>
                     </Card>
 
                     <Card className="p-6 space-y-6">

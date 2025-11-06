@@ -113,6 +113,28 @@ export async function getRegistrationStatus({ accessToken, trailId, userId, sign
     });
 }
 
+export async function previewInvite({ accessToken, token, signal } = {}) {
+    if (!token) {
+        throw new Error("Invite token is required");
+    }
+    return request(`/invites/${token}`, {
+        method: "GET",
+        token: accessToken,
+        signal,
+    });
+}
+
+export async function acceptInvite({ accessToken, token, signal } = {}) {
+    if (!token) {
+        throw new Error("Invite token is required");
+    }
+    return request(`/invites/${token}/register`, {
+        method: "POST",
+        token: accessToken,
+        signal,
+    });
+}
+
 export async function cancelRegistration({ accessToken, registrationId, signal } = {}) {
     if (!registrationId) {
         throw new Error("registrationId is required");
@@ -123,3 +145,4 @@ export async function cancelRegistration({ accessToken, registrationId, signal }
         signal,
     });
 }
+

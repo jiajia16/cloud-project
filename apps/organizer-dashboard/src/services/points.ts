@@ -34,11 +34,36 @@ export type PointsBalance = {
 
 export type PointsLedgerEntry = {
     id: string;
+    user_id?: string;
+    org_id?: string;
     delta: number;
     reason: string;
     trail_id: string | null;
     details: string | null;
     occurred_at: string;
+};
+
+export type OrgBalance = PointsBalance;
+
+export type OrgBalancePage = {
+    items: OrgBalance[];
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+};
+
+export type OrgLedgerEntry = PointsLedgerEntry & {
+    user_id: string;
+    org_id: string;
+};
+
+export type OrgLedgerPage = {
+    items: OrgLedgerEntry[];
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
 };
 
 export type VoucherStatus = "active" | "disabled";
@@ -69,7 +94,7 @@ export type VoucherUpdatePayload = {
 };
 
 export type AdjustPointsPayload = {
-    userId: string;
+    identifier: string;
     delta: number;
     reason?: string;
 };
@@ -183,7 +208,7 @@ export async function adjustPoints({
     payload,
     signal,
 }: FetchOptions & { orgId: string; payload: AdjustPointsPayload }) {
-    const userId = await resolveMemberUserId(payload.userId, accessToken, signal);
+    const userId = await resolveMemberUserId(payload.identifier, accessToken, signal);
     const response = await fetch(
         POINTS_BASE_URL + "/points/orgs/" + orgId + "/adjust",
         {
@@ -203,6 +228,80 @@ export async function adjustPoints({
     );
 
     return handleResponse<AdjustPointsResponse>(response);
+}
+
+export async function listOrgBalances({
+    accessToken,
+    orgId,
+    limit,
+    offset,
+    identifier,
+    signal,
+}: FetchOptions & {
+    orgId: string;
+    limit?: number;
+    offset?: number;
+    identifier?: string;
+}) {
+    let userId: string | undefined;
+    if (identifier && identifier.trim().length > 0) {
+        userId = await resolveMemberUserId(identifier, accessToken, signal);
+    }
+
+    const qs = buildQuery({
+        limit,
+        offset,
+        user_id: userId,
+    });
+
+    const response = await fetch(
+        POINTS_BASE_URL + "/points/orgs/" + orgId + "/balances" + qs,
+        {
+            method: "GET",
+            headers: authHeaders(accessToken),
+            credentials: "include",
+            signal,
+        }
+    );
+
+    return handleResponse<OrgBalancePage>(response);
+}
+
+export async function listOrgLedger({
+    accessToken,
+    orgId,
+    limit,
+    offset,
+    identifier,
+    signal,
+}: FetchOptions & {
+    orgId: string;
+    limit?: number;
+    offset?: number;
+    identifier?: string;
+}) {
+    let userId: string | undefined;
+    if (identifier && identifier.trim().length > 0) {
+        userId = await resolveMemberUserId(identifier, accessToken, signal);
+    }
+
+    const qs = buildQuery({
+        limit,
+        offset,
+        user_id: userId,
+    });
+
+    const response = await fetch(
+        POINTS_BASE_URL + "/points/orgs/" + orgId + "/ledger" + qs,
+        {
+            method: "GET",
+            headers: authHeaders(accessToken),
+            credentials: "include",
+            signal,
+        }
+    );
+
+    return handleResponse<OrgLedgerPage>(response);
 }
 
 export async function listVouchers({

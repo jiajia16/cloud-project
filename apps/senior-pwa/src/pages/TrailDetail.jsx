@@ -51,7 +51,7 @@ const STATUS_DESCRIPTIONS = {
     waitlisted: "Currently waitlisted - you will be moved up when slots free up.",
 };
 
-const DISABLE_CANCEL_STATUSES = new Set(["cancelled", "rejected"]);
+const INACTIVE_REGISTRATION_STATUSES = new Set(["cancelled", "rejected"]);
 
 export default function TrailDetail() {
     const navigate = useNavigate();
@@ -104,6 +104,10 @@ export default function TrailDetail() {
                     }
                 }
 
+                if (matchingRegistration && INACTIVE_REGISTRATION_STATUSES.has(matchingRegistration.status)) {
+                    matchingRegistration = null;
+                }
+
                 setTrail(trailRes);
                 setRegistration(matchingRegistration);
             } catch (err) {
@@ -130,7 +134,7 @@ export default function TrailDetail() {
     }, [accessToken, trailId, refresh]);
 
     const canCancel = useMemo(
-        () => registration && !DISABLE_CANCEL_STATUSES.has(registration.status),
+        () => registration && !INACTIVE_REGISTRATION_STATUSES.has(registration.status),
         [registration]
     );
 

@@ -1,14 +1,20 @@
-# Flow Fixes TODO
+# Flow Fix Checklist
 
-- Allow seniors to re-register for an event they previously cancelled (ensure UI re-enables the join action and backend accepts the repeat registration).
-- Add organiser dashboard view to monitor all seniors' point balances with organisation filters.
-- Build attendee-facing invite consumption flow so seniors can register via tokens organisers share.
-- Let organiser tools accept NRIC lookups everywhere (status checks, registrations, point adjustments) instead of raw user IDs.
-- Expose senior balance monitoring so organisers aren’t limited to their own ledger (shares scope with monitoring view above).
-- Add QR “scan to join” experience for unregistered seniors — TBC once invite flow is resolved.
-- Surface a prominent banner for newly signed-up seniors who lack an organisation assignment (“You have not been assigned to an organisation, please contact an admin.”)
-- Enable organisers to browse leaderboards for all organisations with an organisation filter (not just the ones they belong to).
-- Decide on policy for rejoining after cancellation and align backend behaviour with the planned UI change.
-- Automate point awards on trail attendance if seniors should be rewarded without manual organiser intervention.
-- Coordinate backend support for “scan to join” and bulk balance/leaderboard views so UI enhancements are feasible.
-- Ensure onboarding banner ties into access controls (e.g., limit reward redemption until organisation assignment if required).
+- [x] Allow seniors to re-register for an event they previously cancelled (ensure UI re-enables the join action and backend accepts the repeat registration).
+- [x] Add organiser dashboard view to monitor all seniors' point balances with organisation filters.
+- [x] Build attendee-facing invite consumption flow so seniors can register via tokens organisers share.
+- [x] Let organiser tools accept NRIC lookups everywhere (status checks, registrations, point adjustments) instead of raw user IDs.
+- [x] Expose senior balance monitoring so organisers aren't limited to their own ledger (shares scope with monitoring view above).
+- [ ] Add QR "scan to join" experience for unregistered seniors - TBC once invite flow is resolved.
+- [x] Surface a prominent banner for newly signed-up seniors who lack an organisation assignment ("You have not been assigned to an organisation, please contact an admin.")
+- [ ] Enable organisers to browse leaderboards for all organisations with an organisation filter (not just the ones they belong to).
+- [x] Decide on policy for rejoining after cancellation and align backend behaviour with the planned UI change.
+- [ ] Automate point awards on trail attendance if seniors should be rewarded without manual organiser intervention.
+- [ ] Coordinate backend support for "scan to join" and bulk balance/leaderboard views so UI enhancements are feasible.
+- [x] Update organiser Points Ledger to display organisation-wide transactions (not just the organiser's own log).
+- [ ] Ensure onboarding banner ties into access controls (e.g., limit reward redemption until organisation assignment if required).
+- [x] Refresh the senior experience automatically after an organiser assigns them to an organisation (no manual logout/login).
+- [x] Display participant name and NRIC alongside the unique ID in organiser registration rosters.
+- [ ] Populate the organiser dashboard “Recent Activities” panel with live trail/points data instead of hardcoded entries.
+- [ ] Provide a way to set per-trail point/leaderboard rewards (or document why it is unavailable).
+- [ ] Add an organiser rewards management tab for org-scoped reward CRUD.

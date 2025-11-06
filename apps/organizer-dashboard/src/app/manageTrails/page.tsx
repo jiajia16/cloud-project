@@ -15,7 +15,7 @@ import {
     Users,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { resolveParticipantUserId } from "../../services/auth";
+import { listParticipants, resolveParticipantUserId, type UserSummary } from "../../services/auth";
 import {
     acceptInvite,
     approveRegistration,
@@ -372,6 +372,7 @@ export default function ManageTrailsPage() {
     const [lookupLoading, setLookupLoading] = useState(false);
     const [lookupError, setLookupError] = useState<string | null>(null);
     const [lookupResult, setLookupResult] = useState<Registration["status"] | null>(null);
+    const [lookupProfile, setLookupProfile] = useState<UserSummary | null>(null);
     const [myRegistrations, setMyRegistrations] = useState<Registration[]>([]);
     const [myConfirmedTrails, setMyConfirmedTrails] = useState<Trail[]>([]);
     const [myDataLoading, setMyDataLoading] = useState(false);
@@ -391,6 +392,7 @@ export default function ManageTrailsPage() {
     const [roster, setRoster] = useState<Checkin[]>([]);
     const [rosterLoading, setRosterLoading] = useState(false);
     const [rosterError, setRosterError] = useState<string | null>(null);
+    const [participantDirectory, setParticipantDirectory] = useState<Record<string, UserSummary>>({});
     useEffect(() => {
         if (!organiserOrgIds.length) {
             setOrgId(null);
@@ -403,6 +405,62 @@ export default function ManageTrailsPage() {
             return organiserOrgIds[0];
         });
     }, [organiserOrgIds]);
+
+    useEffect(() => {
+        if (!accessToken) {
+            setParticipantDirectory({});
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const listings = await listParticipants({ accessToken });
+                if (!cancelled) {
+                    setParticipantDirectory(() => {
+                        const next: Record<string, UserSummary> = {};
+                        listings.forEach((participant) => {
+                            next[participant.id] = participant;
+                        });
+                        return next;
+                    });
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    console.warn("Failed to load participant directory", err);
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [accessToken]);
+
+    const upsertParticipantProfile = useCallback((profile: UserSummary | null | undefined) => {
+        if (!profile) {
+            return;
+        }
+        setParticipantDirectory((prev) => {
+            const existing = prev[profile.id];
+            if (existing && existing.name === profile.name && existing.nric === profile.nric) {
+                return prev;
+            }
+            return { ...prev, [profile.id]: profile };
+        });
+    }, []);
+
+    const describeParticipant = useCallback(
+        (userId: string) => {
+            const profile = participantDirectory[userId];
+            if (!profile) {
+                return userId;
+            }
+            if (profile.nric) {
+                return `${profile.name} (${profile.nric})`;
+            }
+            return profile.name;
+        },
+        [participantDirectory]
+    );
 
     const selectedTrail = useMemo(
         () => trails.find((trail) => trail.id === selectedTrailId) ?? null,
@@ -623,27 +681,37 @@ export default function ManageTrailsPage() {
                 setLookupError("Select a trail first.");
                 return;
             }
-            if (!lookupUserId.trim()) {
-                setLookupError("Enter a user ID to look up.");
+            const identifier = lookupUserId.trim();
+            if (!identifier) {
+                setLookupError("Enter a NRIC or user ID to look up.");
                 return;
             }
             setLookupLoading(true);
             setLookupError(null);
             setLookupResult(null);
+            setLookupProfile(null);
             try {
+                const { userId: resolvedUserId, profile } = await resolveParticipantUserId({
+                    accessToken,
+                    identifier,
+                });
+                upsertParticipantProfile(profile);
                 const result = await getRegistrationStatus({
                     accessToken,
                     trailId: selectedTrailId,
-                    userId: lookupUserId.trim(),
+                    userId: resolvedUserId,
                 });
                 setLookupResult(result.status);
+                if (profile) {
+                    setLookupProfile(profile);
+                }
             } catch (err) {
                 setLookupError(getErrorMessage(err));
             } finally {
                 setLookupLoading(false);
             }
         },
-        [accessToken, lookupUserId, selectedTrailId]
+        [accessToken, lookupUserId, selectedTrailId, upsertParticipantProfile]
     );
 
     const handlePreviewInvite = useCallback(async () => {
@@ -775,6 +843,7 @@ export default function ManageTrailsPage() {
             setRegistrationsCursor(0);
             setLookupUserId("");
             setLookupResult(null);
+            setLookupProfile(null);
             setLookupError(null);
             setInvite(null);
             setInviteDetails(null);
@@ -796,6 +865,7 @@ export default function ManageTrailsPage() {
             return;
         }
         setLookupResult(null);
+        setLookupProfile(null);
         setLookupError(null);
         setInviteDetails(null);
         setInvitePreviewError(null);
@@ -846,7 +916,7 @@ export default function ManageTrailsPage() {
                 setFormSubmitting(false);
             }
         },
-        [accessToken, refreshRegistrations, selectedTrail]
+        [accessToken, describeParticipant, refreshRegistrations, selectedTrail, upsertParticipantProfile]
     );
 
     const mutateRegistrationStatus = useCallback(
@@ -864,7 +934,7 @@ export default function ManageTrailsPage() {
                 );
                 setAlert({
                     type: "success",
-                    message: `Updated registration for attendee ${updated.user_id}.`,
+                    message: `Updated registration for attendee ${describeParticipant(updated.user_id)}.`,
                 });
             } catch (err) {
                 setAlert({ type: "error", message: getErrorMessage(err) });
@@ -884,6 +954,7 @@ export default function ManageTrailsPage() {
                     accessToken,
                     identifier: userId,
                 });
+                upsertParticipantProfile(profile);
 
                 if (
                     profile &&
@@ -903,7 +974,7 @@ export default function ManageTrailsPage() {
                 await refreshRegistrations(selectedTrail.id);
                 setAlert({
                     type: "success",
-                    message: `Added attendee ${profile?.name ?? created.user_id} as ${REGISTRATION_STATUS_LABEL[created.status]}.`,
+                    message: `Added attendee ${describeParticipant(created.user_id)} as ${REGISTRATION_STATUS_LABEL[created.status]}.`,
                 });
             } finally {
                 setManualRegistrationLoading(false);
@@ -1253,7 +1324,7 @@ export default function ManageTrailsPage() {
                                     ) : null}
                                     {inviteRegisterResult ? (
                                         <p className="text-xs text-teal-700">
-                                            Registered {inviteRegisterResult.user_id} as {REGISTRATION_STATUS_LABEL[inviteRegisterResult.status]}
+                                            Registered {describeParticipant(inviteRegisterResult.user_id)} as {REGISTRATION_STATUS_LABEL[inviteRegisterResult.status]}
                                         </p>
                                     ) : null}
                                 </div>
@@ -1387,20 +1458,43 @@ export default function ManageTrailsPage() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
-                                                {roster.map((entry) => (
-                                                    <tr key={entry.id}>
-                                                        <td className="px-3 py-2 text-gray-800">{entry.user_id}</td>
-                                                        <td className="px-3 py-2 text-xs text-gray-600 uppercase">
-                                                            {entry.method}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-xs text-gray-500">
-                                                            {formatDate(entry.checked_at)}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-xs text-gray-500">
-                                                            {entry.checked_by ?? "—"}
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                {roster.map((entry) => {
+                                                    const participant = participantDirectory[entry.user_id];
+                                                    return (
+                                                        <tr key={entry.id}>
+                                                            <td className="px-3 py-2 text-gray-800">
+                                                                {participant ? (
+                                                                    <>
+                                                                        <div className="font-semibold">
+                                                                            {participant.name}
+                                                                        </div>
+                                                                        {participant.nric ? (
+                                                                            <div className="text-xs text-gray-600">
+                                                                                {participant.nric}
+                                                                            </div>
+                                                                        ) : null}
+                                                                        <div className="text-[11px] font-mono text-gray-400 break-all">
+                                                                            {entry.user_id}
+                                                                        </div>
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="font-mono text-xs text-gray-600 break-all">
+                                                                        {entry.user_id}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-xs text-gray-600 uppercase">
+                                                                {entry.method}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-xs text-gray-500">
+                                                                {formatDate(entry.checked_at)}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-xs text-gray-500">
+                                                                {entry.checked_by ?? "-"}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
@@ -1410,12 +1504,12 @@ export default function ManageTrailsPage() {
                             <div className="space-y-2">
                                 <h4 className="text-lg font-semibold text-gray-800">Look up attendee status</h4>
                                 <form className="flex flex-wrap gap-2" onSubmit={handleLookupRegistration}>
-                                    <input
-                                        className="flex-1 min-w-[200px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
-                                        placeholder="Enter participant ID"
-                                        value={lookupUserId}
-                                        onChange={(event) => setLookupUserId(event.target.value)}
-                                    />
+                                      <input
+                                          className="flex-1 min-w-[200px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
+                                          placeholder="NRIC or User ID"
+                                          value={lookupUserId}
+                                          onChange={(event) => setLookupUserId(event.target.value)}
+                                      />
                                     <Button type="submit" className="px-4 py-2 text-sm" disabled={lookupLoading}>
                                         {lookupLoading ? "Checking..." : "Check status"}
                                     </Button>
@@ -1423,11 +1517,16 @@ export default function ManageTrailsPage() {
                                 {lookupError ? (
                                     <p className="text-sm text-rose-600">{lookupError}</p>
                                 ) : null}
-                                {lookupResult ? (
-                                    <p className="text-sm text-teal-700">
-                                        Status: {REGISTRATION_STATUS_LABEL[lookupResult]}
-                                    </p>
-                                ) : null}
+                                  {lookupResult ? (
+                                      <p className="text-sm text-teal-700">
+                                          Status: {REGISTRATION_STATUS_LABEL[lookupResult]}
+                                      </p>
+                                  ) : null}
+                                  {lookupProfile ? (
+                                      <p className="text-sm text-gray-600">
+                                          {lookupProfile.name} · {lookupProfile.nric}
+                                      </p>
+                                  ) : null}
                             </div>
 
                             <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs text-gray-600">
@@ -1473,53 +1572,78 @@ export default function ManageTrailsPage() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
-                                                {registrations.map((registration) => (
-                                                    <tr key={registration.id} className="align-top">
-                                                        <td className="px-3 py-2 text-gray-800">{registration.user_id}</td>
-                                                        <td className="px-3 py-2">
-                                                            <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-                                                                {REGISTRATION_STATUS_LABEL[registration.status]}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-xs text-gray-500">{registration.note ?? "-"}</td>
-                                                        <td className="px-3 py-2">
-                                                            <div className="flex flex-wrap justify-end gap-2">
-                                                                <button
-                                                                    className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
-                                                                    onClick={() =>
-                                                                        void mutateRegistrationStatus(approveRegistration, registration)
-                                                                    }
-                                                                >
-                                                                    Approve
-                                                                </button>
-                                                                <button
-                                                                    className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
-                                                                    onClick={() =>
-                                                                        void mutateRegistrationStatus(confirmRegistration, registration)
-                                                                    }
-                                                                >
-                                                                    Confirm
-                                                                </button>
-                                                                <button
-                                                                    className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
-                                                                    onClick={() =>
-                                                                        void mutateRegistrationStatus(rejectRegistration, registration)
-                                                                    }
-                                                                >
-                                                                    Reject
-                                                                </button>
-                                                                <button
-                                                                    className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
-                                                                    onClick={() =>
-                                                                        void mutateRegistrationStatus(cancelRegistration, registration)
-                                                                    }
-                                                                >
-                                                                    Cancel
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                {registrations.map((registration) => {
+                                                    const participant = participantDirectory[registration.user_id];
+                                                    return (
+                                                        <tr key={registration.id} className="align-top">
+                                                            <td className="px-3 py-2 text-gray-800">
+                                                                {participant ? (
+                                                                    <>
+                                                                        <div className="font-semibold">
+                                                                            {participant.name}
+                                                                        </div>
+                                                                        {participant.nric ? (
+                                                                            <div className="text-xs text-gray-600">
+                                                                                {participant.nric}
+                                                                            </div>
+                                                                        ) : null}
+                                                                        <div className="text-[11px] font-mono text-gray-400 break-all">
+                                                                            {registration.user_id}
+                                                                        </div>
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="font-mono text-xs text-gray-600 break-all">
+                                                                        {registration.user_id}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                                                                    {REGISTRATION_STATUS_LABEL[registration.status]}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-3 py-2 text-xs text-gray-500">
+                                                                {registration.note ?? "-"}
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <div className="flex flex-wrap justify-end gap-2">
+                                                                    <button
+                                                                        className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                                                                        onClick={() =>
+                                                                            void mutateRegistrationStatus(approveRegistration, registration)
+                                                                        }
+                                                                    >
+                                                                        Approve
+                                                                    </button>
+                                                                    <button
+                                                                        className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                                                                        onClick={() =>
+                                                                            void mutateRegistrationStatus(confirmRegistration, registration)
+                                                                        }
+                                                                    >
+                                                                        Confirm
+                                                                    </button>
+                                                                    <button
+                                                                        className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                                                                        onClick={() =>
+                                                                            void mutateRegistrationStatus(rejectRegistration, registration)
+                                                                        }
+                                                                    >
+                                                                        Reject
+                                                                    </button>
+                                                                    <button
+                                                                        className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                                                                        onClick={() =>
+                                                                            void mutateRegistrationStatus(cancelRegistration, registration)
+                                                                        }
+                                                                    >
+                                                                        Cancel
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
@@ -1617,6 +1741,9 @@ export default function ManageTrailsPage() {
         </div>
     );
 }
+
+
+
 
 
 
