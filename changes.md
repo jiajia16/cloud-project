@@ -39,3 +39,5 @@
 - Organiser dashboard ledger view now surfaces organisation-wide transactions with participant IDs, error messaging, and load-more controls (apps/organizer-dashboard/src/app/points/page.tsx).
 - Senior PWA auth context periodically re-fetches /users/me so new organisation assignments appear without a manual relog (apps/senior-pwa/src/contexts/AuthContext.jsx).
 - Senior PWA home screen now lets seniors redeem organiser invite codes with live preview and trail enrollment (`apps/senior-pwa/src/services/trails.js`, `apps/senior-pwa/src/pages/Home.jsx`).
+- Organizer insights page now includes an organisation picker so admins can view any org leaderboard while keeping attendance limited to org members (apps/organizer-dashboard/src/app/insights/page.tsx, src/services/auth.ts).
+- Senior PWA adds a public `/join` QR invite scanner with pending invite storage and auto-accept after authentication (new `apps/senior-pwa/src/pages/Join.jsx`, `src/utils/pendingInvite.js`; updated `src/services/checkins.js`, `src/pages/Home.jsx`, `src/pages/Login.jsx`, `src/pages/Signup.jsx`, `App.jsx`).

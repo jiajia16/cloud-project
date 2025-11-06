@@ -43,12 +43,31 @@ export function extractTokenFromScan(rawValue) {
         return "";
     }
 
+    const extractInviteFromPath = (path) => {
+        if (!path || typeof path !== "string") {
+            return null;
+        }
+        const match = path.match(/\/invites\/([^\/?#]+)/i);
+        if (match?.[1]) {
+            try {
+                return decodeURIComponent(match[1]);
+            } catch {
+                return match[1];
+            }
+        }
+        return null;
+    };
+
     const tryExtractFromUrl = (value, base) => {
         try {
             const url = base ? new URL(value, base) : new URL(value);
             const tokenParam = url.searchParams.get("token");
             if (tokenParam) {
                 return tokenParam;
+            }
+            const inviteSegment = extractInviteFromPath(url.pathname);
+            if (inviteSegment) {
+                return inviteSegment;
             }
         } catch {
             return null;
@@ -73,6 +92,11 @@ export function extractTokenFromScan(rawValue) {
         } catch {
             return queryMatch[1];
         }
+    }
+
+    const inviteSegment = extractInviteFromPath(trimmed);
+    if (inviteSegment) {
+        return inviteSegment;
     }
 
     return trimmed;
@@ -104,4 +128,3 @@ export async function listMyCheckins({ accessToken, signal } = {}) {
         signal,
     });
 }
-

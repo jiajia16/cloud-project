@@ -5,9 +5,10 @@
 - [x] Build attendee-facing invite consumption flow so seniors can register via tokens organisers share.
 - [x] Let organiser tools accept NRIC lookups everywhere (status checks, registrations, point adjustments) instead of raw user IDs.
 - [x] Expose senior balance monitoring so organisers aren't limited to their own ledger (shares scope with monitoring view above).
-- [ ] Add QR "scan to join" experience for unregistered seniors - TBC once invite flow is resolved.
+- [x] Add QR "scan to join" experience for unregistered seniors - available via /join with auto hand-off after login.
+- [ ] Investigate senior invite auto-registration: token survives login but Home never emits POST /invites/{token}/register.
 - [x] Surface a prominent banner for newly signed-up seniors who lack an organisation assignment ("You have not been assigned to an organisation, please contact an admin.")
-- [ ] Enable organisers to browse leaderboards for all organisations with an organisation filter (not just the ones they belong to).
+- [x] Enable organisers to browse leaderboards for all organisations with an organisation filter (not just the ones they belong to).
 - [x] Decide on policy for rejoining after cancellation and align backend behaviour with the planned UI change.
 - [ ] Automate point awards on trail attendance if seniors should be rewarded without manual organiser intervention.
 - [ ] Coordinate backend support for "scan to join" and bulk balance/leaderboard views so UI enhancements are feasible.

@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext.jsx";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { loginUser } from "../services/auth.js";
+import { setPendingInviteToken } from "../utils/pendingInvite.js";
 
 export default function Login() {
     const [nric, setNric] = useState("");
@@ -10,6 +11,16 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        const pendingInvite = location.state?.pendingInvite;
+        if (!pendingInvite) {
+            return;
+        }
+        setPendingInviteToken(pendingInvite);
+        navigate(location.pathname, { replace: true, state: {} });
+    }, [location, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -82,6 +93,15 @@ export default function Login() {
                         onClick={() => navigate("/signup")}
                     >
                         Sign up
+                    </span>
+                </p>
+                <p className="mt-3 text-sm text-teal-700">
+                    Have a QR invite?{" "}
+                    <span
+                        className="font-semibold hover:underline cursor-pointer"
+                        onClick={() => navigate("/join")}
+                    >
+                        Scan to join
                     </span>
                 </p>
             </div>

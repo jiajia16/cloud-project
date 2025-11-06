@@ -21,6 +21,7 @@ import {
     previewInvite,
     acceptInvite,
 } from "../services/trails.js";
+import { consumePendingInviteToken } from "../utils/pendingInvite.js";
 
 const HIGHLIGHTS = [
     {
@@ -197,6 +198,101 @@ export default function Home() {
         const controller = new AbortController();
         fetchData(controller.signal);
         return () => controller.abort();
+    }, [accessToken, fetchData]);
+
+    useEffect(() => {
+        if (!accessToken) {
+            return;
+        }
+        const pending = consumePendingInviteToken();
+        if (!pending) {
+            return;
+        }
+        let cancelled = false;
+        const controller = new AbortController();
+
+        const processInvite = async () => {
+            setInviteToken(pending);
+            setInviteError("");
+            setInviteSuccess("");
+            setInviteLoading(true);
+            try {
+                const inviteData = await previewInvite({
+                    accessToken,
+                    token: pending,
+                    signal: controller.signal,
+                });
+                if (cancelled) {
+                    return;
+                }
+                setInvitePreview(inviteData);
+
+                let alreadyRegistered = false;
+                try {
+                    await acceptInvite({
+                        accessToken,
+                        token: pending,
+                        signal: controller.signal,
+                    });
+                } catch (joinErr) {
+                    if (cancelled || joinErr?.name === "AbortError") {
+                        return;
+                    }
+                    const message = joinErr?.message ?? "";
+                    if (/already registered/i.test(message)) {
+                        alreadyRegistered = true;
+                    } else {
+                        setInviteError(message || "We couldn't join you with this invite.");
+                        return;
+                    }
+                }
+
+                if (cancelled) {
+                    return;
+                }
+
+                const title =
+                    inviteData?.trail?.title ??
+                    (typeof inviteData?.title === "string" ? inviteData.title : "");
+                if (alreadyRegistered) {
+                    setInviteSuccess(
+                        title
+                            ? `You're already registered for ${title}.`
+                            : "You're already registered for this activity."
+                    );
+                } else {
+                    setInviteSuccess(
+                        title
+                            ? `You're registered for ${title}!`
+                            : "Invite accepted! You're all set."
+                    );
+                }
+
+                try {
+                    await fetchData(controller.signal);
+                } catch {
+                    // ignore refresh errors triggered by invite auto-join
+                }
+            } catch (err) {
+                if (cancelled || err?.name === "AbortError") {
+                    return;
+                }
+                setInviteError(
+                    err?.message ?? "We couldn't process the invite you scanned earlier."
+                );
+            } finally {
+                if (!cancelled) {
+                    setInviteLoading(false);
+                }
+            }
+        };
+
+        processInvite();
+
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
     }, [accessToken, fetchData]);
 
     const confirmedCount = useMemo(

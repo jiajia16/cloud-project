@@ -8,6 +8,7 @@ import Home from "./pages/Home.jsx";
 import MyTrails from "./pages/MyTrails.jsx";
 import TrailDetail from "./pages/TrailDetail.jsx";
 import Scan from "./pages/Scan.jsx";
+import Join from "./pages/Join.jsx";
 import Leaderboard from "./pages/Leaderboard.jsx";
 import Rewards from "./pages/Rewards.jsx";
 import Social from "./pages/Social.jsx";
@@ -34,6 +35,7 @@ export default function App() {
         }
       />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/join" element={<Join />} />
 
       <Route path="/" element={<Navigate to="/home" replace />} />
 

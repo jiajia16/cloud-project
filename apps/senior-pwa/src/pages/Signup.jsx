@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { signupAttendee } from "../services/auth.js";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { setPendingInviteToken } from "../utils/pendingInvite.js";
 
 export default function Signup() {
     const [name, setName] = useState("");
@@ -13,7 +14,17 @@ export default function Signup() {
     const [showSuccess, setShowSuccess] = useState(false);
     const [createdName, setCreatedName] = useState("");
     const navigate = useNavigate();
+    const location = useLocation();
     const { login, isAuthenticated } = useAuth();
+
+    useEffect(() => {
+        const pendingInvite = location.state?.pendingInvite;
+        if (!pendingInvite) {
+            return;
+        }
+        setPendingInviteToken(pendingInvite);
+        navigate(location.pathname, { replace: true, state: {} });
+    }, [location, navigate]);
 
     useEffect(() => {
         if (isAuthenticated && !showSuccess) {
@@ -171,6 +182,15 @@ export default function Signup() {
                         onClick={() => navigate("/login")}
                     >
                         Log in
+                    </span>
+                </p>
+                <p className="mt-3 text-sm text-teal-700 text-center">
+                    Received an invite QR?{" "}
+                    <span
+                        className="font-semibold hover:underline cursor-pointer"
+                        onClick={() => navigate("/join")}
+                    >
+                        Scan to join first
                     </span>
                 </p>
             </div>
