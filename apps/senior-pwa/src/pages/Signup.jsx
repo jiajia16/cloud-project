@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { signupAttendee } from "../services/auth.js";
 import { useAuth } from "../contexts/AuthContext.jsx";
-import { setPendingInviteToken } from "../utils/pendingInvite.js";
+import { setPendingInviteToken, autoJoinPendingInvite } from "../utils/pendingInvite.js";
 
 export default function Signup() {
     const [name, setName] = useState("");
@@ -64,6 +64,13 @@ export default function Signup() {
                 passcode: passcode.trim(),
             });
             login(response);
+            try {
+                await autoJoinPendingInvite({
+                    accessToken: response?.tokens?.access_token,
+                });
+            } catch (inviteErr) {
+                console.warn("Pending invite auto-join failed", inviteErr);
+            }
             setCreatedName(response?.user?.name ?? name.trim());
             setShowSuccess(true);
         } catch (err) {

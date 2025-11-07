@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import { loginUser } from "../services/auth.js";
-import { setPendingInviteToken } from "../utils/pendingInvite.js";
+import { setPendingInviteToken, autoJoinPendingInvite } from "../utils/pendingInvite.js";
 
 export default function Login() {
     const [nric, setNric] = useState("");
@@ -33,6 +33,13 @@ export default function Login() {
         try {
             const response = await loginUser({ nric: nric.trim(), passcode: passcode.trim() });
             login(response);
+            try {
+                await autoJoinPendingInvite({
+                    accessToken: response?.tokens?.access_token,
+                });
+            } catch (inviteErr) {
+                console.warn("Pending invite auto-join failed", inviteErr);
+            }
             navigate("/home", { replace: true });
         } catch (err) {
             setError(err.message || "Unable to log in. Please try again.");

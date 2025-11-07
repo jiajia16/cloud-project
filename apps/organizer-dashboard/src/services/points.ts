@@ -66,33 +66,6 @@ export type OrgLedgerPage = {
     has_more: boolean;
 };
 
-export type VoucherStatus = "active" | "disabled";
-
-export type Voucher = {
-    id: string;
-    org_id: string;
-    code: string;
-    name: string;
-    points_cost: number;
-    status: VoucherStatus;
-    total_quantity: number | null;
-    redeemed_count: number;
-};
-
-export type VoucherCreatePayload = {
-    code: string;
-    name: string;
-    points_cost: number;
-    total_quantity?: number | null;
-};
-
-export type VoucherUpdatePayload = {
-    name?: string;
-    points_cost?: number;
-    status?: VoucherStatus;
-    total_quantity?: number | null;
-};
-
 export type AdjustPointsPayload = {
     identifier: string;
     delta: number;

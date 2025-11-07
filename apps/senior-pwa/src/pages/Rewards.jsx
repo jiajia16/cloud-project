@@ -4,6 +4,7 @@ import React, {
     useMemo,
     useState,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
 import { Card, Button, SectionTitle } from "@silvertrails/ui";
 import { formatPoints } from "@silvertrails/utils";
@@ -34,6 +35,8 @@ export default function Rewards() {
     const { tokens, user } = useAuth();
     const accessToken = tokens?.access_token;
     const orgIds = user?.org_ids ?? [];
+    const pendingOrgAssignment = !orgIds || orgIds.length === 0;
+    const navigate = useNavigate();
 
     const [selectedOrgId, setSelectedOrgId] = useState(() => orgIds[0] ?? null);
     const [balance, setBalance] = useState(null);
@@ -102,6 +105,10 @@ export default function Rewards() {
             if (!accessToken) {
                 return;
             }
+            if (!selectedOrgId) {
+                setRedeemError("Join an organisation to redeem rewards.");
+                return;
+            }
             setRedeemingId(voucher.id);
             setRedeemError("");
             try {
@@ -113,7 +120,7 @@ export default function Rewards() {
                 setRedeemingId(null);
             }
         },
-        [accessToken, refreshData]
+        [accessToken, refreshData, selectedOrgId]
     );
 
     const sortedVouchers = useMemo(
@@ -185,12 +192,34 @@ export default function Rewards() {
                     )}
                     {(!orgIds || orgIds.length === 0) && (
                         <p className="text-sm text-gray-600">
-                            You have not been added to an organisation yet. Ask your organiser to invite you so you can start collecting rewards.
+                            You have not been added to an organisation yet. Ask your organiser for an invite or use the Join page to enter a code so you can start collecting rewards.
                         </p>
                     )}
                 </Card>
 
-                {selectedOrgId && (
+                {pendingOrgAssignment ? (
+                    <Card className="p-5 space-y-3 border border-amber-200 bg-amber-50 text-amber-900">
+                        <h3 className="text-lg font-semibold">Complete onboarding to unlock rewards</h3>
+                        <p className="text-sm leading-6">
+                            Rewards, vouchers, and point balances become available once your organiser assigns you to an organisation. Use the invite code they share with you or ask them to add you from the organiser dashboard.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <Button
+                                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
+                                onClick={() => navigate("/join")}
+                            >
+                                Enter invite code
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="flex-1 border-amber-200 text-amber-900 hover:bg-white"
+                                onClick={() => navigate("/home")}
+                            >
+                                Back to Home
+                            </Button>
+                        </div>
+                    </Card>
+                ) : selectedOrgId && (
                     <>
                         <SectionTitle title="Redeemable Rewards" />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -321,4 +350,3 @@ export default function Rewards() {
         </Layout>
     );
 }
-

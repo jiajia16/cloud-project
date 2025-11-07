@@ -21,7 +21,10 @@ import {
     previewInvite,
     acceptInvite,
 } from "../services/trails.js";
-import { consumePendingInviteToken } from "../utils/pendingInvite.js";
+import {
+    consumePendingInviteToken,
+    consumePendingInviteResult,
+} from "../utils/pendingInvite.js";
 
 const HIGHLIGHTS = [
     {
@@ -199,6 +202,25 @@ export default function Home() {
         fetchData(controller.signal);
         return () => controller.abort();
     }, [accessToken, fetchData]);
+
+    useEffect(() => {
+        const result = consumePendingInviteResult();
+        if (!result) {
+            return;
+        }
+        if (result.status === "success") {
+            const title =
+                result?.trailTitle && typeof result.trailTitle === "string"
+                    ? result.trailTitle
+                    : "";
+            setInviteSuccess(
+                title ? `You're registered for ${title}!` : "Invite accepted! You're all set."
+            );
+            fetchData().catch(() => {});
+        } else if (result.status === "error") {
+            setInviteError(result.message ?? "We couldn't process your invite.");
+        }
+    }, [fetchData]);
 
     useEffect(() => {
         if (!accessToken) {

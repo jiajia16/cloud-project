@@ -48,8 +48,10 @@ function shortenId(id) {
 
 export default function Scan() {
     const navigate = useNavigate();
-    const { tokens } = useAuth();
+    const { tokens, user } = useAuth();
     const accessToken = tokens?.access_token;
+    const orgIds = user?.org_ids ?? [];
+    const pendingOrgAssignment = !orgIds || orgIds.length === 0;
 
     const [manualToken, setManualToken] = useState("");
     const [lastCheckin, setLastCheckin] = useState(null);
@@ -64,7 +66,7 @@ export default function Scan() {
 
     const fetchHistory = useCallback(
         async ({ signal } = {}) => {
-            if (!accessToken) {
+            if (!accessToken || pendingOrgAssignment) {
                 setHistory([]);
                 return;
             }
@@ -87,17 +89,18 @@ export default function Scan() {
                 }
             }
         },
-        [accessToken]
+        [accessToken, pendingOrgAssignment]
     );
 
     useEffect(() => {
-        if (!accessToken) {
+        if (!accessToken || pendingOrgAssignment) {
+            setHistory([]);
             return;
         }
         const controller = new AbortController();
         fetchHistory({ signal: controller.signal });
         return () => controller.abort();
-    }, [accessToken, fetchHistory]);
+    }, [accessToken, fetchHistory, pendingOrgAssignment]);
 
     const submitToken = useCallback(
         async (token) => {
@@ -107,6 +110,10 @@ export default function Scan() {
             }
             if (!accessToken) {
                 setError("Please sign in again to scan QR codes.");
+                return;
+            }
+            if (pendingOrgAssignment) {
+                setError("Join an organisation before scanning QR codes.");
                 return;
             }
             if (loading) {
@@ -131,7 +138,7 @@ export default function Scan() {
                 setLoading(false);
             }
         },
-        [accessToken, fetchHistory, loading]
+        [accessToken, fetchHistory, loading, pendingOrgAssignment]
     );
 
     const handleScanResult = useCallback(
@@ -173,6 +180,45 @@ export default function Scan() {
 
     const recentHistory = useMemo(() => history.slice(0, 5), [history]);
     const hasHistory = recentHistory.length > 0;
+
+    if (pendingOrgAssignment) {
+        return (
+            <div className="min-h-[100svh] bg-teal-900 flex flex-col items-center px-4 py-8">
+                <button
+                    type="button"
+                    onClick={() => navigate("/home")}
+                    className="self-start mb-6 flex items-center gap-2 text-white/90 hover:text-white transition"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+                    <span className="text-sm font-medium">Back</span>
+                </button>
+                <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 space-y-4 text-gray-800">
+                    <div className="flex items-center gap-3 text-amber-700">
+                        <AlertCircle className="w-6 h-6" />
+                        <h1 className="text-xl font-semibold">You need an organisation first</h1>
+                    </div>
+                    <p className="text-sm leading-6 text-gray-600">
+                        We can only record check-ins after your organiser adds you to an organisation. Enter the invite link they shared with you or ask them to send a new one.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <Button
+                            className="flex-1 bg-teal-500 hover:bg-teal-600 text-white"
+                            onClick={() => navigate("/join")}
+                        >
+                            Enter invite code
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50"
+                            onClick={() => navigate("/home")}
+                        >
+                            Back to Home
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div

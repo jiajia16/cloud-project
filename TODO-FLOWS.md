@@ -6,16 +6,17 @@
 - [x] Let organiser tools accept NRIC lookups everywhere (status checks, registrations, point adjustments) instead of raw user IDs.
 - [x] Expose senior balance monitoring so organisers aren't limited to their own ledger (shares scope with monitoring view above).
 - [x] Add QR "scan to join" experience for unregistered seniors - available via /join with auto hand-off after login.
-- [ ] Investigate senior invite auto-registration: token survives login but Home never emits POST /invites/{token}/register.
+- [x] Investigated and fixed senior invite auto-registration: login/signup now auto-consumes pending tokens and surfaces status on Home.
 - [x] Surface a prominent banner for newly signed-up seniors who lack an organisation assignment ("You have not been assigned to an organisation, please contact an admin.")
 - [x] Enable organisers to browse leaderboards for all organisations with an organisation filter (not just the ones they belong to).
 - [x] Decide on policy for rejoining after cancellation and align backend behaviour with the planned UI change.
-- [ ] Automate point awards on trail attendance if seniors should be rewarded without manual organiser intervention.
-- [ ] Coordinate backend support for "scan to join" and bulk balance/leaderboard views so UI enhancements are feasible.
+- [x] Automate point awards on trail attendance: qr-checkin now mints a service token and hits points ingest whenever NATS awarding is disabled.
+- [x] Coordinate backend support for "scan to join" and bulk balance/leaderboard views (documented service requirements and env wiring in `docs/backend-support.md`).
 - [x] Update organiser Points Ledger to display organisation-wide transactions (not just the organiser's own log).
-- [ ] Ensure onboarding banner ties into access controls (e.g., limit reward redemption until organisation assignment if required).
+- [x] Ensure onboarding banner ties into access controls (Rewards + Scan disabled until seniors are assigned to an organisation, with backend enforcement).
 - [x] Refresh the senior experience automatically after an organiser assigns them to an organisation (no manual logout/login).
 - [x] Display participant name and NRIC alongside the unique ID in organiser registration rosters.
-- [ ] Populate the organiser dashboard “Recent Activities” panel with live trail/points data instead of hardcoded entries.
-- [ ] Provide a way to set per-trail point/leaderboard rewards (or document why it is unavailable).
-- [ ] Add an organiser rewards management tab for org-scoped reward CRUD.
+- [x] Populate the organiser dashboard "Recent Activities" panel with live trail data pulled from Trails & Orgs services.
+- [x] Provide a way to set per-trail point/leaderboard rewards (documented backend gaps + current stance in `docs/backend-support.md`).
+- [x] Add an organiser rewards management tab for org-scoped reward CRUD.
+- [x] Replace hardcoded organiser overview stats (participants/activities/completion rate) with live service data.
