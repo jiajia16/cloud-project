@@ -246,7 +246,7 @@ export default function MyTrails() {
                                 <div className="flex flex-wrap gap-3 text-sm text-gray-700">
                                     <span className="flex items-center gap-1">
                                         <CalendarRange className="w-4 h-4 text-teal-500" />
-                                        {formatDateTime(reg.trail?.starts_at)} -> {formatDateTime(reg.trail?.ends_at)}
+                                        {formatDateTime(reg.trail?.starts_at)}{" \u2192 "}{formatDateTime(reg.trail?.ends_at)}
                                     </span>
                                     <span className="flex items-center gap-1">
                                         <MapPin className="w-4 h-4 text-teal-500" />
@@ -328,7 +328,7 @@ export default function MyTrails() {
                                 <div className="flex flex-wrap gap-3 text-sm text-gray-700">
                                     <span className="flex items-center gap-1">
                                         <CalendarRange className="w-4 h-4 text-teal-500" />
-                                        {formatDateTime(trail.starts_at)} -> {formatDateTime(trail.ends_at)}
+                                        {formatDateTime(trail.starts_at)}{" \u2192 "}{formatDateTime(trail.ends_at)}
                                     </span>
                                     <span className="flex items-center gap-1">
                                         <MapPin className="w-4 h-4 text-teal-500" />
@@ -372,7 +372,7 @@ export default function MyTrails() {
                                     <div className="flex flex-wrap gap-3 text-sm text-gray-700">
                                         <span className="flex items-center gap-1">
                                             <CalendarRange className="w-4 h-4 text-teal-500" />
-                                            {formatDateTime(trail.starts_at)} -> {formatDateTime(trail.ends_at)}
+                                            {formatDateTime(trail.starts_at)}{" \u2192 "}{formatDateTime(trail.ends_at)}
                                         </span>
                                         <span className="flex items-center gap-1">
                                             <MapPin className="w-4 h-4 text-teal-500" />

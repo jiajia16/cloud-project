@@ -484,7 +484,7 @@ export default function Home() {
                             <div className="flex items-center gap-2 text-gray-600">
                                 <CalendarRange className="w-4 h-4 text-cyan-600" />
                                 <span>
-                                    {formatDate(inviteTrail.starts_at)} -> {formatDate(inviteTrail.ends_at)}
+                                    {formatDate(inviteTrail.starts_at)}{" \u2192 "}{formatDate(inviteTrail.ends_at)}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2 text-gray-600">
@@ -516,7 +516,7 @@ export default function Home() {
                                     <div className="flex items-center gap-2">
                                         <CalendarRange className="w-4 h-4 text-cyan-600" />
                                         <span>
-                                            {formatDate(trail.starts_at)} -> {formatDate(trail.ends_at)}
+                                            {formatDate(trail.starts_at)}{" \u2192 "}{formatDate(trail.ends_at)}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -529,7 +529,7 @@ export default function Home() {
                                     onClick={() => navigate("/mytrails")}
                                     className="mt-3 text-sm text-cyan-700 hover:text-cyan-800 font-semibold"
                                 >
-                                    View details ->
+                                    View details{" \u2192 "}
                                 </button>
                             </div>
                         ))}

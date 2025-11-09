@@ -209,7 +209,7 @@ export default function TrailDetail() {
                             <div className="flex items-center gap-2">
                                 <CalendarRange className="w-5 h-5 text-teal-600" />
                                 <span>
-                                    {formatDate(trail.starts_at)} -> {formatDate(trail.ends_at)}
+                                    {formatDate(trail.starts_at)}{" \u2192 "}{formatDate(trail.ends_at)}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
