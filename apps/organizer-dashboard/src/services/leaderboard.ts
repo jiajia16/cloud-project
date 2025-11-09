@@ -22,6 +22,7 @@ export type AttendanceEntry = {
     org_id: string;
     user_id: string;
     checked_at: string;
+    status?: string;
 };
 
 function buildQuery(params: Record<string, QueryValue>) {
