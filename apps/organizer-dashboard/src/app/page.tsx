@@ -231,13 +231,17 @@ export default function DashboardPage() {
             ))
           ) : activities.length === 0 ? (
             <Card className="p-4 border border-gray-200 bg-white">
-              <p className="text-sm text-gray-600">
-                No recent trails to display yet. Create a new trail or check
-                back later.
-              </p>
-              <Button asChild className="mt-3 bg-teal-500 hover:bg-teal-600">
-                <Link href="/manageTrails">Create trail</Link>
-              </Button>
+              <div className="flex items-center justify-between rounded-md border border-gray-200 bg-white p-4">
+                <p className="text-sm text-gray-600">
+                  No recent trails to display yet. Create a new trail or check back later.
+                </p>
+                <Button
+                  type="button"
+                  className="ml-4 shrink-0 rounded-full bg-teal-500 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600"
+                >
+                  <Link href="/manageTrails">Create trail</Link>
+                </Button>
+              </div>
             </Card>
           ) : (
             activities.map((activity) => (
@@ -262,15 +266,14 @@ export default function DashboardPage() {
                     Capacity {activity.capacity || "—"}
                   </p>
                   <span
-                    className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-medium mt-1 ${
-                      activity.status === "published"
+                    className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-medium mt-1 ${activity.status === "published"
                         ? "bg-emerald-100 text-emerald-700"
                         : activity.status === "closed"
-                        ? "bg-blue-100 text-blue-700"
-                        : activity.status === "draft"
-                        ? "bg-gray-100 text-gray-600"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
+                          ? "bg-blue-100 text-blue-700"
+                          : activity.status === "draft"
+                            ? "bg-gray-100 text-gray-600"
+                            : "bg-amber-100 text-amber-700"
+                      }`}
                   >
                     {activity.status}
                   </span>

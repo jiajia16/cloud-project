@@ -101,9 +101,9 @@ function TrailForm({ initial, submitting, submitLabel, onSubmit, onCancel }: Tra
     const [title, setTitle] = useState(initial?.title ?? "");
     const [description, setDescription] = useState(initial?.description ?? "");
     const [location, setLocation] = useState(initial?.location ?? "");
-        const [capacity, setCapacity] = useState<string>(
-            initial?.capacity !== undefined ? String(initial.capacity) : ""
-        );
+    const [capacity, setCapacity] = useState<string>(
+        initial?.capacity !== undefined ? String(initial.capacity) : ""
+    );
     const [startsAt, setStartsAt] = useState(() => {
         if (!initial?.starts_at) {
             return "";
@@ -1014,16 +1014,16 @@ export default function ManageTrailsPage() {
             return;
         }
         const text = invite.url ?? invite.invite_token;
-            if (typeof navigator === "undefined" || !navigator.clipboard) {
-                setAlert({ type: "error", message: "Clipboard copy is unavailable in this browser." });
-                return;
-            }
-            void navigator.clipboard
-                .writeText(text)
-                .then(() => setAlert({ type: "success", message: "Invitation copied to clipboard." }))
-                .catch(() =>
-                    setAlert({ type: "error", message: "Unable to copy link. Copy it manually instead." })
-                );
+        if (typeof navigator === "undefined" || !navigator.clipboard) {
+            setAlert({ type: "error", message: "Clipboard copy is unavailable in this browser." });
+            return;
+        }
+        void navigator.clipboard
+            .writeText(text)
+            .then(() => setAlert({ type: "success", message: "Invitation copied to clipboard." }))
+            .catch(() =>
+                setAlert({ type: "error", message: "Unable to copy link. Copy it manually instead." })
+            );
     }, [invite]);
 
     useEffect(() => {
@@ -1091,11 +1091,10 @@ export default function ManageTrailsPage() {
 
             {alert ? (
                 <div
-                    className={`rounded-xl border px-4 py-3 text-sm ${
-                        alert.type === "success"
+                    className={`rounded-xl border px-4 py-3 text-sm ${alert.type === "success"
                             ? "border-teal-200 bg-teal-50 text-teal-700"
                             : "border-rose-200 bg-rose-50 text-rose-600"
-                    }`}
+                        }`}
                 >
                     {alert.message}
                 </div>
@@ -1172,9 +1171,8 @@ export default function ManageTrailsPage() {
                                                 setShowEditForm(false);
                                                 setInvite(null);
                                             }}
-                                            className={`w-full text-left px-6 py-4 transition ${
-                                                active ? "bg-teal-50" : "hover:bg-gray-50"
-                                            }`}
+                                            className={`w-full text-left px-6 py-4 transition ${active ? "bg-teal-50" : "hover:bg-gray-50"
+                                                }`}
                                         >
                                             <div className="flex items-center justify-between gap-3">
                                                 <div>
@@ -1504,12 +1502,12 @@ export default function ManageTrailsPage() {
                             <div className="space-y-2">
                                 <h4 className="text-lg font-semibold text-gray-800">Look up attendee status</h4>
                                 <form className="flex flex-wrap gap-2" onSubmit={handleLookupRegistration}>
-                                      <input
-                                          className="flex-1 min-w-[200px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
-                                          placeholder="NRIC or User ID"
-                                          value={lookupUserId}
-                                          onChange={(event) => setLookupUserId(event.target.value)}
-                                      />
+                                    <input
+                                        className="flex-1 min-w-[200px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
+                                        placeholder="NRIC or User ID"
+                                        value={lookupUserId}
+                                        onChange={(event) => setLookupUserId(event.target.value)}
+                                    />
                                     <Button type="submit" className="px-4 py-2 text-sm" disabled={lookupLoading}>
                                         {lookupLoading ? "Checking..." : "Check status"}
                                     </Button>
@@ -1517,16 +1515,16 @@ export default function ManageTrailsPage() {
                                 {lookupError ? (
                                     <p className="text-sm text-rose-600">{lookupError}</p>
                                 ) : null}
-                                  {lookupResult ? (
-                                      <p className="text-sm text-teal-700">
-                                          Status: {REGISTRATION_STATUS_LABEL[lookupResult]}
-                                      </p>
-                                  ) : null}
-                                  {lookupProfile ? (
-                                      <p className="text-sm text-gray-600">
-                                          {lookupProfile.name} · {lookupProfile.nric}
-                                      </p>
-                                  ) : null}
+                                {lookupResult ? (
+                                    <p className="text-sm text-teal-700">
+                                        Status: {REGISTRATION_STATUS_LABEL[lookupResult]}
+                                    </p>
+                                ) : null}
+                                {lookupProfile ? (
+                                    <p className="text-sm text-gray-600">
+                                        {lookupProfile.name} · {lookupProfile.nric}
+                                    </p>
+                                ) : null}
                             </div>
 
                             <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs text-gray-600">
@@ -1671,102 +1669,74 @@ export default function ManageTrailsPage() {
                             Select a trail to see its details.
                         </div>
                     )}
-                </Card>            <Card className="space-y-4 border border-gray-200 shadow-sm p-6">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-lg font-semibold text-gray-800">My organiser activity</h3>
-                    <Button
-                        variant="ghost"
-                        className="border border-gray-200 px-3 py-1 text-xs"
-                        onClick={() => void refreshMyData()}
-                        disabled={myDataLoading}
-                    >
-                        {myDataLoading ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                            <RefreshCw className="h-3 w-3" />
-                        )}
-                        Refresh
-                    </Button>
-                </div>
-                {myDataError ? (
-                    <p className="text-sm text-rose-600">{myDataError}</p>
-                ) : null}
-                <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-gray-700">All registrations</h4>
-                        {myRegistrations.length === 0 ? (
-                            <p className="text-xs text-gray-500">No registrations recorded for this organiser.</p>
-                        ) : (
-                            <ul className="space-y-2 text-xs text-gray-700">
-                                {myRegistrations.map((registration) => {
-                                    const trail = trailsById.get(registration.trail_id ?? "");
-                                    return (
+                </Card>
+                <Card className="lg:col-span-5 space-y-4 border border-gray-200 shadow-sm p-6">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-lg font-semibold text-gray-800">My organiser activity</h3>
+                        <Button
+                            variant="ghost"
+                            className="border border-gray-200 px-3 py-1 text-xs"
+                            onClick={() => void refreshMyData()}
+                            disabled={myDataLoading}
+                        >
+                            {myDataLoading ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                                <RefreshCw className="h-3 w-3" />
+                            )}
+                            Refresh
+                        </Button>
+                    </div>
+                    {myDataError ? (
+                        <p className="text-sm text-rose-600">{myDataError}</p>
+                    ) : null}
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-gray-700">All registrations</h4>
+                            {myRegistrations.length === 0 ? (
+                                <p className="text-xs text-gray-500">No registrations recorded for this organiser.</p>
+                            ) : (
+                                <ul className="space-y-2 text-xs text-gray-700">
+                                    {myRegistrations.map((registration) => {
+                                        const trail = trailsById.get(registration.trail_id ?? "");
+                                        return (
+                                            <li
+                                                key={registration.id}
+                                                className="rounded-md border border-gray-200 bg-white px-3 py-2"
+                                            >
+                                                <div className="font-medium">{trail?.title ?? registration.trail_id}</div>
+                                                <div className="text-gray-500">
+                                                    Status: {REGISTRATION_STATUS_LABEL[registration.status]}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-gray-700">Confirmed trails</h4>
+                            {myConfirmedTrails.length === 0 ? (
+                                <p className="text-xs text-gray-500">No confirmed attendance yet.</p>
+                            ) : (
+                                <ul className="space-y-2 text-xs text-gray-700">
+                                    {myConfirmedTrails.map((trail) => (
                                         <li
-                                            key={registration.id}
+                                            key={trail.id}
                                             className="rounded-md border border-gray-200 bg-white px-3 py-2"
                                         >
-                                            <div className="font-medium">{trail?.title ?? registration.trail_id}</div>
+                                            <div className="font-medium">{trail.title}</div>
                                             <div className="text-gray-500">
-                                                Status: {REGISTRATION_STATUS_LABEL[registration.status]}
+                                                {formatDate(trail.starts_at)} · {trail.location ?? "Location TBC"}
                                             </div>
                                         </li>
-                                    );
-                                })}
-                            </ul>
-                        )}
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
                     </div>
-                    <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-gray-700">Confirmed trails</h4>
-                        {myConfirmedTrails.length === 0 ? (
-                            <p className="text-xs text-gray-500">No confirmed attendance yet.</p>
-                        ) : (
-                            <ul className="space-y-2 text-xs text-gray-700">
-                                {myConfirmedTrails.map((trail) => (
-                                    <li
-                                        key={trail.id}
-                                        className="rounded-md border border-gray-200 bg-white px-3 py-2"
-                                    >
-                                        <div className="font-medium">{trail.title}</div>
-                                        <div className="text-gray-500">
-                                            {formatDate(trail.starts_at)} · {trail.location ?? "Location TBC"}
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </div>
-            </Card>
+                </Card>
             </div>
         </div>
     );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
