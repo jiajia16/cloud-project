@@ -21,5 +21,11 @@
 - [x] Add an organiser rewards management tab for org-scoped reward CRUD.
 - [x] Replace hardcoded organiser overview stats (participants/activities/completion rate) with live service data.
 - [] might need to revise the user flow a little bit, as this platform for elderly -> give me more freedom, exploration to more things -> the priority is them mah -> upon signing up they can join any org -> no need for the admin to add them to org, the organiser only come to confirm the attandance list of an activity/ trails
-- [] not sure why my QR code not working and all invite link not working 
-- [] invite code at the senior-pwa dashboard not reading properly
+- [] not sure why my QR code not working and all invite link to register for a trail not working 
+- [] invite to a trail code at the senior-pwa dashboard not reading properly 
+- [] after registered successfully (manual) for a trail, the checkin qr code and checkin link not working also, and then run once, should be able to run twice until success or token expired. hence attendance feature not able to test yet
+- [] make new reward -> point cost can be 0 
+- [] after redeemed the voucher, go code displayed for the senior 
+- [] implement the report functionalities on the org dashboard
+- [] upon signing up 2 seniors, joined the same org, the leaderboard not implemented 
+- [] create the add activities for a trail -> activity 1 done then scan qr code then get the points, activitiy 2 done then scan qr code then get the points, etc.
