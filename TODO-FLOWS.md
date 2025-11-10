@@ -20,3 +20,6 @@
 - [x] Provide a way to set per-trail point/leaderboard rewards (documented backend gaps + current stance in `docs/backend-support.md`).
 - [x] Add an organiser rewards management tab for org-scoped reward CRUD.
 - [x] Replace hardcoded organiser overview stats (participants/activities/completion rate) with live service data.
+- [] might need to revise the user flow a little bit, as this platform for elderly -> give me more freedom, exploration to more things -> the priority is them mah -> upon signing up they can join any org -> no need for the admin to add them to org, the organiser only come to confirm the attandance list of an activity/ trails
+- [] not sure why my QR code not working and all invite link not working 
+- [] invite code at the senior-pwa dashboard not reading properly
