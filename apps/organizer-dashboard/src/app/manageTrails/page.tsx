@@ -50,6 +50,49 @@ import {
 
 type AlertState = { type: "success" | "error"; message: string } | null;
 
+// Local activity model for organiser-defined sequential activities within a trail
+type TrailActivity = {
+    id: string;
+    order: number;
+    title: string;
+    points: number;
+    notes?: string;
+    qrToken?: TrailQrToken | null;
+    // Object URL created from PNG blob; not persisted
+    qrImageUrl?: string | null;
+    // UI-only state: whether this item is being edited
+    isEditing?: boolean;
+};
+
+function makeId() {
+    try {
+        // @ts-ignore - crypto may exist in browser
+        if (typeof crypto !== "undefined" && (crypto as any).randomUUID) {
+            return (crypto as any).randomUUID();
+        }
+    } catch { }
+    return (
+        Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
+    ).toUpperCase();
+}
+
+function activitiesStorageKey(trailId: string) {
+    return `trailActivities:${trailId}`;
+}
+
+function appendQuery(url: string, params: Record<string, string | number | undefined>) {
+    try {
+        const absolute = new URL(url, typeof window !== "undefined" ? window.location.origin : undefined);
+        Object.entries(params).forEach(([k, v]) => {
+            if (v === undefined || v === null || v === "") return;
+            absolute.searchParams.set(k, String(v));
+        });
+        return absolute.toString();
+    } catch {
+        return url;
+    }
+}
+
 const TRAIL_STATUS_LABEL: Record<TrailStatus, string> = {
     draft: "Draft",
     published: "Published",
@@ -393,6 +436,249 @@ export default function ManageTrailsPage() {
     const [rosterLoading, setRosterLoading] = useState(false);
     const [rosterError, setRosterError] = useState<string | null>(null);
     const [participantDirectory, setParticipantDirectory] = useState<Record<string, UserSummary>>({});
+
+    // Activities builder state (persisted per trail in localStorage)
+    const [activities, setActivities] = useState<TrailActivity[]>([]);
+    const [activitiesError, setActivitiesError] = useState<string | null>(null);
+    const [activityQrLoadingId, setActivityQrLoadingId] = useState<string | null>(null);
+    const [bulkQrLoading, setBulkQrLoading] = useState(false);
+
+    const sortedActivities = useMemo(
+        () => [...activities].sort((a, b) => a.order - b.order),
+        [activities]
+    );
+
+    const saveActivities = useCallback(
+        (trailId: string, items: TrailActivity[]) => {
+            if (typeof window === "undefined") return;
+            const payload = items.map(({ id, order, title, points, notes, qrToken }) => ({
+                id,
+                order,
+                title,
+                points,
+                notes,
+                qrToken: qrToken
+                    ? { token: qrToken.token, url: qrToken.url, expires_at: qrToken.expires_at }
+                    : null,
+            }));
+            try {
+                localStorage.setItem(activitiesStorageKey(trailId), JSON.stringify(payload));
+            } catch {
+                // ignore
+            }
+        },
+        []
+    );
+
+    useEffect(() => {
+        // Load activities when trail selection changes
+        if (!selectedTrailId) {
+            // revoke object URLs
+            activities.forEach((a) => a.qrImageUrl && URL.revokeObjectURL(a.qrImageUrl));
+            setActivities([]);
+            return;
+        }
+        let parsed: any[] | null = null;
+        try {
+            const raw = typeof window !== "undefined" ? localStorage.getItem(activitiesStorageKey(selectedTrailId)) : null;
+            parsed = raw ? (JSON.parse(raw) as any[]) : null;
+        } catch {
+            parsed = null;
+        }
+        const restored: TrailActivity[] = Array.isArray(parsed)
+            ? parsed
+                  .map((e) => {
+                      const item: TrailActivity = {
+                          id: String(e.id ?? makeId()),
+                          order: Number(e.order ?? 0) || 0,
+                          title: String(e.title ?? ""),
+                          points: Number(e.points ?? 0) || 0,
+                          notes: e.notes ? String(e.notes) : undefined,
+                          qrToken: e.qrToken ?? null,
+                          qrImageUrl: null,
+                          isEditing: false,
+                      };
+                      return item;
+                  })
+                  .sort((a, b) => a.order - b.order)
+                  .map((e, i) => ({ ...e, order: i + 1 }))
+            : [];
+        // revoke previous images then set
+        activities.forEach((a) => a.qrImageUrl && URL.revokeObjectURL(a.qrImageUrl));
+        setActivities(restored);
+        setActivitiesError(null);
+    }, [selectedTrailId]);
+
+    useEffect(() => {
+        // Persist activities on change
+        if (selectedTrailId) {
+            saveActivities(selectedTrailId, activities);
+        }
+    }, [activities, saveActivities, selectedTrailId]);
+
+    const addActivity = useCallback(() => {
+        setActivities((prev) => {
+            const nextOrder = (prev.reduce((m, a) => Math.max(m, a.order), 0) || 0) + 1;
+            return [
+                ...prev,
+                {
+                    id: makeId(),
+                    order: nextOrder,
+                    title: "",
+                    points: 0,
+                    notes: "",
+                    qrToken: null,
+                    qrImageUrl: null,
+                    isEditing: true,
+                },
+            ];
+        });
+    }, []);
+
+    const removeActivity = useCallback((id: string) => {
+        setActivities((prev) => {
+            const target = prev.find((a) => a.id === id);
+            if (target?.qrImageUrl) {
+                URL.revokeObjectURL(target.qrImageUrl);
+            }
+            const remaining = prev.filter((a) => a.id !== id).sort((a, b) => a.order - b.order);
+            return remaining.map((a, i) => ({ ...a, order: i + 1 }));
+        });
+    }, []);
+
+    const moveActivity = useCallback((id: string, direction: -1 | 1) => {
+        setActivities((prev) => {
+            const items = [...prev].sort((a, b) => a.order - b.order);
+            const index = items.findIndex((a) => a.id === id);
+            if (index < 0) return prev;
+            const targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= items.length) return prev;
+            const tmp = items[index];
+            items[index] = items[targetIndex];
+            items[targetIndex] = tmp;
+            return items.map((a, i) => ({ ...a, order: i + 1 }));
+        });
+    }, []);
+
+    const updateActivityField = useCallback(
+        (id: string, patch: Partial<Pick<TrailActivity, "title" | "points" | "notes">>) => {
+            setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+        },
+        []
+    );
+
+    const setActivityEditing = useCallback((id: string, editing: boolean) => {
+        setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, isEditing: editing } : a)));
+    }, []);
+
+    const saveActivity = useCallback((id: string) => {
+        setActivitiesError(null);
+        setActivities((prev) => {
+            const next = prev.map((a) => {
+                if (a.id !== id) return a;
+                const title = (a.title ?? "").trim();
+                const points = Number.isFinite(a.points) ? Math.max(0, Math.floor(a.points)) : 0;
+                if (!title) {
+                    setActivitiesError("Activity title is required.");
+                    return { ...a };
+                }
+                return { ...a, title, points, isEditing: false };
+            });
+            return next;
+        });
+    }, []);
+
+    const selectedTrail = useMemo(
+        () => trails.find((trail) => trail.id === selectedTrailId) ?? null,
+        [selectedTrailId, trails]
+    );
+    const generateActivityQr = useCallback(
+        async (id: string) => {
+            if (!accessToken || !selectedTrailId) {
+                setActivitiesError("Select a trail first.");
+                return;
+            }
+            setActivitiesError(null);
+            setActivityQrLoadingId(id);
+            try {
+                const qr = await createTrailQr({ accessToken, trailId: selectedTrailId });
+                // grab PNG immediately for this token
+                const blob = await getTrailQrImage({ accessToken, trailId: selectedTrailId });
+                const objectUrl = URL.createObjectURL(blob);
+                setActivities((prev) =>
+                    prev.map((a) => {
+                        if (a.id !== id) return a;
+                        if (a.qrImageUrl) {
+                            URL.revokeObjectURL(a.qrImageUrl);
+                        }
+                        return { ...a, qrToken: qr, qrImageUrl: objectUrl };
+                    })
+                );
+                setAlert({ type: "success", message: "Generated activity QR." });
+            } catch (err) {
+                setActivitiesError(getErrorMessage(err));
+                setAlert({ type: "error", message: getErrorMessage(err) });
+            } finally {
+                setActivityQrLoadingId(null);
+            }
+        },
+        [accessToken, selectedTrailId]
+    );
+
+    const generateAllActivityQrs = useCallback(async () => {
+        if (!accessToken || !selectedTrailId) {
+            setActivitiesError("Select a trail first.");
+            return;
+        }
+        setActivitiesError(null);
+        setBulkQrLoading(true);
+        try {
+            for (const item of sortedActivities) {
+                // eslint-disable-next-line no-await-in-loop
+                const qr = await createTrailQr({ accessToken, trailId: selectedTrailId });
+                // eslint-disable-next-line no-await-in-loop
+                const blob = await getTrailQrImage({ accessToken, trailId: selectedTrailId });
+                const objectUrl = URL.createObjectURL(blob);
+                setActivities((prev) =>
+                    prev.map((a) => {
+                        if (a.id !== item.id) return a;
+                        if (a.qrImageUrl) {
+                            URL.revokeObjectURL(a.qrImageUrl);
+                        }
+                        return { ...a, qrToken: qr, qrImageUrl: objectUrl };
+                    })
+                );
+            }
+            setAlert({ type: "success", message: "Generated QRs for all activities." });
+        } catch (err) {
+            setActivitiesError(getErrorMessage(err));
+            setAlert({ type: "error", message: getErrorMessage(err) });
+        } finally {
+            setBulkQrLoading(false);
+        }
+    }, [accessToken, selectedTrailId, sortedActivities]);
+
+    const copyActivityLink = useCallback(
+        (item: TrailActivity) => {
+            if (!item.qrToken) return;
+            if (typeof navigator === "undefined" || !navigator.clipboard) {
+                setAlert({ type: "error", message: "Clipboard copy is unavailable in this browser." });
+                return;
+            }
+            const enriched = appendQuery(item.qrToken.url, {
+                a: item.order,
+                p: item.points,
+                t: item.id,
+            });
+            void navigator.clipboard
+                .writeText(enriched)
+                .then(() => setAlert({ type: "success", message: "Activity link copied to clipboard." }))
+                .catch(() => setAlert({ type: "error", message: "Unable to copy link." }));
+        },
+        []
+    );
+
+
     useEffect(() => {
         if (!organiserOrgIds.length) {
             setOrgId(null);
@@ -462,10 +748,7 @@ export default function ManageTrailsPage() {
         [participantDirectory]
     );
 
-    const selectedTrail = useMemo(
-        () => trails.find((trail) => trail.id === selectedTrailId) ?? null,
-        [selectedTrailId, trails]
-    );
+
 
     const trailInfo = selectedTrailDetail ?? selectedTrail;
     const trailsById = useMemo(() => new Map(trails.map((trail) => [trail.id, trail])), [trails]);
@@ -1092,8 +1375,8 @@ export default function ManageTrailsPage() {
             {alert ? (
                 <div
                     className={`rounded-xl border px-4 py-3 text-sm ${alert.type === "success"
-                            ? "border-teal-200 bg-teal-50 text-teal-700"
-                            : "border-rose-200 bg-rose-50 text-rose-600"
+                        ? "border-teal-200 bg-teal-50 text-teal-700"
+                        : "border-rose-200 bg-rose-50 text-rose-600"
                         }`}
                 >
                     {alert.message}
@@ -1411,6 +1694,200 @@ export default function ManageTrailsPage() {
                                         </a>
                                     </div>
                                 ) : null}
+                            </div>
+
+                            {/* Activities builder */}
+                            <div className="space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <h4 className="text-lg font-semibold text-gray-800">Activities</h4>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Button
+                                            variant="ghost"
+                                            className="border border-gray-200 px-3 py-1 text-xs"
+                                            onClick={addActivity}
+                                        >
+                                            <Plus className="h-3 w-3" /> Add activity
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            className="border border-gray-200 px-3 py-1 text-xs"
+                                            onClick={generateAllActivityQrs}
+                                            disabled={!sortedActivities.length || bulkQrLoading}
+                                        >
+                                            {bulkQrLoading ? (
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                            ) : (
+                                                <QrCode className="h-3 w-3" />
+                                            )}
+                                            Generate all QRs
+                                        </Button>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-gray-600">
+                                    Participants complete Activity 1, then scan its QR to earn points,
+                                    then proceed to Activity 2, and so on.
+                                </p>
+                                {activitiesError ? (
+                                    <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+                                        {activitiesError}
+                                    </div>
+                                ) : null}
+                                {sortedActivities.length === 0 ? (
+                                    <p className="text-sm text-gray-500">No activities yet.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {sortedActivities.map((item, index) => (
+                                            <div key={item.id} className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                                                {item.isEditing ? (
+                                                    <>
+                                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                                                                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-semibold text-gray-700">
+                                                                    {item.order}
+                                                                </div>
+                                                                <input
+                                                                    className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
+                                                                    placeholder="Activity title"
+                                                                    value={item.title}
+                                                                    onChange={(e) => updateActivityField(item.id, { title: e.target.value })}
+                                                                />
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                                                    onClick={() => moveActivity(item.id, -1)}
+                                                                    disabled={index === 0}
+                                                                >
+                                                                    Move up
+                                                                </button>
+                                                                <button
+                                                                    className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                                                    onClick={() => moveActivity(item.id, 1)}
+                                                                    disabled={index === sortedActivities.length - 1}
+                                                                >
+                                                                    Move down
+                                                                </button>
+                                                                <button
+                                                                    className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
+                                                                    onClick={() => removeActivity(item.id)}
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                                            <label className="text-sm font-medium text-gray-700">
+                                                                Points
+                                                                <input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
+                                                                    value={item.points}
+                                                                    onChange={(e) => updateActivityField(item.id, { points: Number(e.target.value || 0) })}
+                                                                />
+                                                            </label>
+                                                            <label className="text-sm font-medium text-gray-700 md:col-span-2">
+                                                                Notes
+                                                                <input
+                                                                    type="text"
+                                                                    maxLength={120}
+                                                                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
+                                                                    placeholder="Optional instructions"
+                                                                    value={item.notes ?? ""}
+                                                                    onChange={(e) => updateActivityField(item.id, { notes: e.target.value })}
+                                                                />
+                                                            </label>
+                                                        </div>
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                className="border border-gray-200 px-3 py-1 text-xs"
+                                                                onClick={() => saveActivity(item.id)}
+                                                            >
+                                                                Save
+                                                            </Button>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                                                                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-semibold text-gray-700">
+                                                                    {item.order}
+                                                                </div>
+                                                                <div className="min-w-0 truncate text-sm font-medium text-gray-800">
+                                                                    {item.title || "Untitled activity"}
+                                                                </div>
+                                                                {Number(item.points) > 0 ? (
+                                                                    <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-medium text-teal-700">
+                                                                        {item.points} pts
+                                                                    </span>
+                                                                ) : null}
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                                                    onClick={() => setActivityEditing(item.id, true)}
+                                                                >
+                                                                    Edit details
+                                                                </button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    className="border border-gray-200 px-3 py-1 text-xs"
+                                                                    onClick={() => void generateActivityQr(item.id)}
+                                                                    disabled={activityQrLoadingId === item.id}
+                                                                >
+                                                                    {activityQrLoadingId === item.id ? (
+                                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                                    ) : (
+                                                                        <QrCode className="h-3 w-3" />
+                                                                    )}
+                                                                    Generate QR code
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                        {item.qrToken ? (
+                                                            <div className="space-y-1 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-xs text-teal-800">
+                                                                <div>Expires {formatDate(new Date(item.qrToken.expires_at * 1000).toISOString())}</div>
+                                                                <div className="break-all text-teal-700">
+                                                                    {appendQuery(item.qrToken.url, { a: item.order, p: item.points, t: item.id })}
+                                                                </div>
+                                                                <div className="font-mono text-teal-900">Token: {item.qrToken.token}</div>
+                                                                <div className="flex flex-wrap items-center gap-2 pt-1">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        className="border border-gray-200 px-3 py-1 text-xs"
+                                                                        onClick={() => copyActivityLink(item)}
+                                                                    >
+                                                                        <Copy className="h-3 w-3" /> Copy link
+                                                                    </Button>
+                                                                    {item.qrImageUrl ? (
+                                                                        <a
+                                                                            href={item.qrImageUrl}
+                                                                            download={`trail-${selectedTrailId ?? "qr"}-activity-${item.order}.png`}
+                                                                            className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                                                        >
+                                                                            <Download className="h-3 w-3" /> Download PNG
+                                                                        </a>
+                                                                    ) : null}
+                                                                </div>
+                                                            </div>
+                                                        ) : null}
+                                                        {item.qrImageUrl ? (
+                                                            <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+                                                                <img
+                                                                    src={item.qrImageUrl ?? undefined}
+                                                                    alt={`QR code for activity ${item.order}`}
+                                                                    className="h-40 w-40 max-w-full rounded-md border border-gray-100"
+                                                                />
+                                                            </div>
+                                                        ) : null}
+                                                    </>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-3">
