@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@silvertrails/ui";
 import {
     Trophy,
     Gift,
@@ -21,6 +22,7 @@ import {
     previewInvite,
     acceptInvite,
 } from "../services/trails.js";
+import { listOrganisations, selfJoinOrganisation } from "../services/auth.js";
 import {
     consumePendingInviteToken,
     consumePendingInviteResult,
@@ -64,7 +66,7 @@ function formatDate(value) {
 }
 
 export default function Home() {
-    const { user, logout, tokens } = useAuth();
+    const { user, logout, tokens, refreshSession } = useAuth();
     const navigate = useNavigate();
     const accessToken = tokens?.access_token;
 
@@ -79,6 +81,12 @@ export default function Home() {
     const [inviteSubmitting, setInviteSubmitting] = useState(false);
     const [inviteError, setInviteError] = useState("");
     const [inviteSuccess, setInviteSuccess] = useState("");
+    const [orgOptions, setOrgOptions] = useState([]);
+    const [orgLoading, setOrgLoading] = useState(false);
+    const [orgError, setOrgError] = useState("");
+    const [selectedOrg, setSelectedOrg] = useState("");
+    const [joinLoading, setJoinLoading] = useState(false);
+    const [joinSuccessMessage, setJoinSuccessMessage] = useState("");
 
     const inviteTrail = useMemo(() => {
         if (!invitePreview) {
@@ -89,6 +97,31 @@ export default function Home() {
         }
         return invitePreview;
     }, [invitePreview]);
+
+    useEffect(() => {
+        const pendingOrg = !user?.org_ids || user.org_ids.length === 0;
+        if (!pendingOrg || !accessToken) {
+            setOrgOptions([]);
+            setOrgError("");
+            setSelectedOrg("");
+            setJoinSuccessMessage("");
+            return;
+        }
+        setOrgLoading(true);
+        setOrgError("");
+        setJoinSuccessMessage("");
+        listOrganisations({ accessToken })
+            .then((orgs) => {
+                setOrgOptions(Array.isArray(orgs) ? orgs : []);
+            })
+            .catch((err) => {
+                setOrgError(err?.message ?? "Unable to load organisations right now.");
+                setOrgOptions([]);
+            })
+            .finally(() => {
+                setOrgLoading(false);
+            });
+    }, [accessToken, user?.org_ids]);
 
     const fetchData = useCallback(
         async (signal) => {
@@ -365,14 +398,65 @@ export default function Home() {
 
             {pendingOrgAssignment && (
                 <div
-                    className="w-full max-w-3xl mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-6 py-4 text-amber-900 shadow-sm"
+                    className="w-full max-w-3xl mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-6 py-4 text-amber-900 shadow-sm space-y-3"
                     role="alert"
                 >
-                    <h2 className="text-lg font-semibold">Almost there!</h2>
-                    <p className="mt-1 text-sm leading-5">
-                        You haven&apos;t been assigned to an organisation yet. Please contact your organiser so you
-                        can start registering for activities and collecting rewards.
-                    </p>
+                    <div>
+                        <h2 className="text-lg font-semibold">Almost there!</h2>
+                        <p className="mt-1 text-sm leading-5">
+                            You haven&apos;t joined an organisation yet. Pick one below to start registering for
+                            activities immediately, or ask an organiser to send you an invite.
+                        </p>
+                    </div>
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                        <label className="flex-1 text-xs font-semibold text-amber-900">
+                            Choose organisation
+                            <select
+                                value={selectedOrg}
+                                onChange={(event) => setSelectedOrg(event.target.value)}
+                                className="mt-2 w-full rounded-xl border border-amber-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200"
+                                disabled={orgLoading || joinLoading}
+                            >
+                                <option value="">Select organisation…</option>
+                                {orgOptions.map((org) => (
+                                    <option key={org.id} value={org.id}>
+                                        {org.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <Button
+                            onClick={async () => {
+                                if (!selectedOrg) {
+                                    setOrgError("Select an organisation first.");
+                                    return;
+                                }
+                                if (!accessToken) {
+                                    setOrgError("Sign in again to continue.");
+                                    return;
+                                }
+                                setJoinLoading(true);
+                                setOrgError("");
+                                setJoinSuccessMessage("");
+                                try {
+                                    await selfJoinOrganisation({ accessToken, orgId: selectedOrg });
+                                    setJoinSuccessMessage("Joined successfully! Updating your dashboard…");
+                                    await refreshSession();
+                                    await fetchData();
+                                } catch (err) {
+                                    setOrgError(err?.message ?? "Unable to join this organisation right now.");
+                                } finally {
+                                    setJoinLoading(false);
+                                }
+                            }}
+                            disabled={joinLoading || orgLoading}
+                            className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-xl"
+                        >
+                            {joinLoading ? "Joining..." : "Join organisation"}
+                        </Button>
+                    </div>
+                    {orgError && <p className="text-xs text-rose-600">{orgError}</p>}
+                    {joinSuccessMessage && <p className="text-xs text-emerald-700">{joinSuccessMessage}</p>}
                 </div>
             )}
 

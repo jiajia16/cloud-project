@@ -48,6 +48,7 @@ export default function Rewards() {
     const [error, setError] = useState("");
     const [redeemingId, setRedeemingId] = useState(null);
     const [redeemError, setRedeemError] = useState("");
+    const [redeemSuccess, setRedeemSuccess] = useState(null);
 
     useEffect(() => {
         if (!selectedOrgId && orgIds.length > 0) {
@@ -111,8 +112,14 @@ export default function Rewards() {
             }
             setRedeemingId(voucher.id);
             setRedeemError("");
+            setRedeemSuccess(null);
             try {
-                await redeemVoucher({ accessToken, voucherId: voucher.id });
+                const redemption = await redeemVoucher({ accessToken, voucherId: voucher.id });
+                setRedeemSuccess({
+                    name: voucher.name,
+                    code: redemption?.voucher_code ?? voucher.code,
+                    redeemed_at: redemption?.redeemed_at ?? null,
+                });
                 await refreshData();
             } catch (err) {
                 setRedeemError(err?.message ?? "Unable to redeem this reward right now.");
@@ -148,7 +155,7 @@ export default function Rewards() {
     const canRedeem = (voucher) =>
         voucher.status === "active" &&
         (voucher.total_quantity === null || voucher.redeemed_count < voucher.total_quantity) &&
-        currentPoints >= voucher.points_cost;
+        (voucher.points_cost === 0 || currentPoints >= voucher.points_cost);
 
     return (
         <Layout title="Rewards">
@@ -281,6 +288,24 @@ export default function Rewards() {
                                 {redeemError}
                             </p>
                         )}
+                        {redeemSuccess && (
+                            <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                                <p className="font-semibold">
+                                    {redeemSuccess.name || "Voucher"} redeemed successfully!
+                                </p>
+                                <p className="mt-1">
+                                    Present this code to the organiser:
+                                    <span className="ml-2 font-mono font-semibold text-lg text-emerald-800">
+                                        {redeemSuccess.code?.toUpperCase()}
+                                    </span>
+                                </p>
+                                {redeemSuccess.redeemed_at && (
+                                    <p className="text-xs text-emerald-600 mt-1">
+                                        Redeemed at {formatDate(redeemSuccess.redeemed_at)}
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                         <SectionTitle title="Points History" />
                         <Card>
@@ -339,6 +364,11 @@ export default function Rewards() {
                                             <p className="text-xs text-gray-500 mt-1">
                                                 {formatDate(entry.redeemed_at)}
                                             </p>
+                                            {entry.voucher_code && (
+                                                <p className="text-xs text-gray-600 mt-1 font-mono">
+                                                    Code: {entry.voucher_code.toUpperCase()}
+                                                </p>
+                                            )}
                                         </li>
                                     ))}
                                 </ul>

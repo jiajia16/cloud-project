@@ -25,6 +25,28 @@ export type AttendanceEntry = {
     status?: string;
 };
 
+export type AttendanceTrailSummary = {
+    trail_id: string;
+    checkins: number;
+    unique_participants: number;
+};
+
+export type AttendanceDailySummary = {
+    day: string;
+    checkins: number;
+};
+
+export type AttendanceSummary = {
+    org_id: string;
+    range_start: string;
+    range_end: string;
+    total_checkins: number;
+    unique_participants: number;
+    last_checkin_at: string | null;
+    per_trail: AttendanceTrailSummary[];
+    daily: AttendanceDailySummary[];
+};
+
 function buildQuery(params: Record<string, QueryValue>) {
     const search = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -138,4 +160,24 @@ export async function getMyAttendance({
     );
 
     return handleResponse<AttendanceEntry[]>(response);
+}
+
+export async function getOrgAttendanceSummary({
+    accessToken,
+    orgId,
+    days,
+    signal,
+}: FetchOptions & { orgId: string; days?: number }) {
+    const qs = buildQuery({ days });
+    const response = await fetch(
+        LEADERBOARD_BASE_URL + "/reports/orgs/" + orgId + "/attendance-summary" + qs,
+        {
+            method: "GET",
+            headers: authHeaders(accessToken),
+            credentials: "include",
+            signal,
+        }
+    );
+
+    return handleResponse<AttendanceSummary>(response);
 }

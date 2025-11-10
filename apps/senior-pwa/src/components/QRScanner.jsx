@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 
 export default function QRScanner({
   onResult,
@@ -7,6 +8,7 @@ export default function QRScanner({
 }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const readerRef = useRef(null);
   const fallbackCalled = useRef(false);
 
   useEffect(() => {
@@ -45,13 +47,17 @@ export default function QRScanner({
           };
         }
 
-        // ---- Your existing decoder init (e.g., @zxing/browser) goes here ----
-        // Example sketch:
-        // const codeReader = new BrowserMultiFormatReader();
-        // codeReader.decodeFromVideoDevice(null, videoRef.current, (res, err) => {
-        //   if (res) onResult?.(res.getText());
-        // });
-        // cleanupRef.current = () => codeReader.reset();
+        const reader = new BrowserMultiFormatReader();
+        readerRef.current = reader;
+        reader.decodeFromVideoDevice(null, videoRef.current, (res, err) => {
+          if (res) {
+            try {
+              onResult?.(res.getText());
+            } catch {}
+          } else if (err && err.name === "NotAllowedError") {
+            fallback("camera permission denied");
+          }
+        });
 
       } catch (err) {
         fallback(err?.name || "camera error");
@@ -75,6 +81,7 @@ export default function QRScanner({
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(t => t.stop());
         }
+        readerRef.current?.reset?.();
       } catch {}
     };
   }, [onResult, onUnavailable]);

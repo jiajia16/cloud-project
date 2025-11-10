@@ -70,3 +70,20 @@ export async function fetchCurrentUser({ accessToken }) {
         token: accessToken,
     });
 }
+
+export async function listOrganisations({ accessToken } = {}) {
+    return request("/orgs", {
+        method: "GET",
+        token: accessToken,
+    });
+}
+
+export async function selfJoinOrganisation({ accessToken, orgId }) {
+    if (!orgId) {
+        throw new Error("Organisation ID is required");
+    }
+    return request(`/orgs/${orgId}/self-join`, {
+        method: "POST",
+        token: accessToken,
+    });
+}

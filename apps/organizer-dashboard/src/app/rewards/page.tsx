@@ -81,8 +81,8 @@ function VoucherForm({
     const quantityValue =
       totalQuantity.trim() === "" ? null : Number(totalQuantity);
 
-    if (!trimmedName || !Number.isFinite(pointsValue) || pointsValue <= 0) {
-      setError("Provide a reward name and a positive point cost.");
+    if (!trimmedName || !Number.isFinite(pointsValue) || pointsValue < 0) {
+      setError("Provide a reward name and a point cost of 0 or greater.");
       return;
     }
     if (mode === "create" && !trimmedCode) {
@@ -145,7 +145,7 @@ function VoucherForm({
         Points cost
         <input
           type="number"
-          min={1}
+          min={0}
           value={pointsCost}
           onChange={(event) => setPointsCost(event.target.value)}
           className="mt-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-200"
@@ -494,10 +494,18 @@ export default function RewardsPage() {
                     </span>
                   </div>
                   <p className="text-sm text-gray-600">
-                    Costs{" "}
-                    <span className="font-semibold">
-                      {voucher.points_cost.toLocaleString()} pts
-                    </span>
+                    {voucher.points_cost === 0 ? (
+                      <span className="font-semibold text-emerald-600">
+                        Free reward
+                      </span>
+                    ) : (
+                      <>
+                        Costs{" "}
+                        <span className="font-semibold">
+                          {voucher.points_cost.toLocaleString()} pts
+                        </span>
+                      </>
+                    )}
                   </p>
                   <p className="text-sm text-gray-500">
                     Remaining:{" "}
@@ -551,4 +559,3 @@ export default function RewardsPage() {
     </div>
   );
 }
-

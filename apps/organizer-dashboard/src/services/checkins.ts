@@ -24,6 +24,9 @@ export type TrailQrToken = {
   token: string;
   expires_at: number;
   url: string;
+  activity_id?: string | null;
+  activity_order?: number | null;
+  points?: number | null;
 };
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -71,6 +74,44 @@ export async function createTrailQr({
       headers: {
         Authorization: "Bearer " + accessToken,
       },
+      credentials: "include",
+      signal,
+    }
+  );
+
+  return handleResponse<TrailQrToken>(response);
+}
+
+export async function createActivityQr({
+  accessToken,
+  trailId,
+  activityId,
+  activityOrder,
+  points,
+  signal,
+}: FetchOptions & {
+  trailId: string;
+  activityId: string;
+  activityOrder?: number | null;
+  points?: number | null;
+}) {
+  const response = await fetch(
+    CHECKIN_BASE_URL +
+      "/checkin/trails/" +
+      trailId +
+      "/activities/" +
+      activityId +
+      "/qr",
+    {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + accessToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        activity_order: activityOrder ?? undefined,
+        points: points ?? undefined,
+      }),
       credentials: "include",
       signal,
     }

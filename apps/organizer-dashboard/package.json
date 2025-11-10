@@ -11,6 +11,7 @@
     "@silvertrails/types": "workspace:*",
     "@silvertrails/ui": "workspace:*",
     "@silvertrails/utils": "workspace:*",
+    "qrcode": "^1.5.3",
     "lucide-react": "^0.546.0",
     "next": "16.0.1",
     "react": "19.1.0",

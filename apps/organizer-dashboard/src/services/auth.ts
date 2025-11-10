@@ -186,6 +186,13 @@ export type OrganisationSummary = {
   name: string;
 };
 
+export type OrganisationStats = {
+  org_id: string;
+  organisers: number;
+  attendees: number;
+  total_members: number;
+};
+
 export async function listOrganisations({
   accessToken,
   signal,
@@ -246,4 +253,25 @@ export async function assignParticipantToOrganisation({
   if (!response.ok) {
     await handleResponse<unknown>(response);
   }
+}
+
+export async function getOrganisationStats({
+  accessToken,
+  orgId,
+  signal,
+}: {
+  accessToken: string;
+  orgId: string;
+  signal?: AbortSignal;
+}): Promise<OrganisationStats> {
+  const response = await fetch(`${AUTH_BASE_URL}/orgs/${orgId}/stats`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    credentials: "include",
+    signal,
+  });
+
+  return handleResponse<OrganisationStats>(response);
 }

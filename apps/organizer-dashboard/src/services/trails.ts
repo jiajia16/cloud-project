@@ -54,6 +54,52 @@ export type InvitePreview = {
   trail: Trail;
 };
 
+export type UpcomingTrailSummary = {
+  id: string;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  capacity: number;
+  confirmed_registrations: number;
+};
+
+export type TrailsOverview = {
+  org_id: string;
+  total_trails: number;
+  draft: number;
+  published: number;
+  closed: number;
+  cancelled: number;
+  total_capacity: number;
+  confirmed_registrations: number;
+  upcoming: UpcomingTrailSummary[];
+};
+
+export type TrailActivityRecord = {
+  id: string;
+  trail_id: string;
+  title: string;
+  points: number;
+  notes: string | null;
+  order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateTrailActivityPayload = {
+  title: string;
+  points?: number;
+  notes?: string | null;
+  order?: number;
+};
+
+export type UpdateTrailActivityPayload = {
+  title?: string;
+  points?: number;
+  notes?: string | null;
+  order?: number;
+};
+
 type ListTrailsResponse = Trail[];
 
 type FetchOptions = {
@@ -163,6 +209,26 @@ export async function getTrail({
   return handleResponse<Trail>(response);
 }
 
+export async function listTrailActivities({
+  accessToken,
+  trailId,
+  signal,
+}: FetchOptions & { trailId: string }) {
+  const response = await fetch(
+    TRAILS_BASE_URL + "/trails/" + trailId + "/activities",
+    {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer " + accessToken,
+      },
+      credentials: "include",
+      signal,
+    }
+  );
+
+  return handleResponse<TrailActivityRecord[]>(response);
+}
+
 export async function getTrailRegistrations({
   accessToken,
   trailId,
@@ -251,6 +317,85 @@ export async function updateTrail({
   });
 
   return handleResponse<Trail>(response);
+}
+
+export async function createTrailActivity({
+  accessToken,
+  trailId,
+  payload,
+}: FetchOptions & {
+  trailId: string;
+  payload: CreateTrailActivityPayload;
+}) {
+  const response = await fetch(
+    TRAILS_BASE_URL + "/trails/" + trailId + "/activities",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + accessToken,
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    }
+  );
+
+  return handleResponse<TrailActivityRecord>(response);
+}
+
+export async function updateTrailActivity({
+  accessToken,
+  trailId,
+  activityId,
+  payload,
+}: FetchOptions & {
+  trailId: string;
+  activityId: string;
+  payload: UpdateTrailActivityPayload;
+}) {
+  const response = await fetch(
+    TRAILS_BASE_URL + "/trails/" + trailId + "/activities/" + activityId,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + accessToken,
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    }
+  );
+
+  return handleResponse<TrailActivityRecord>(response);
+}
+
+export async function deleteTrailActivity({
+  accessToken,
+  trailId,
+  activityId,
+  signal,
+}: FetchOptions & { trailId: string; activityId: string }) {
+  const response = await fetch(
+    TRAILS_BASE_URL + "/trails/" + trailId + "/activities/" + activityId,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: "Bearer " + accessToken,
+      },
+      credentials: "include",
+      signal,
+    }
+  );
+
+  if (!response.ok) {
+    let detail: string | null = null;
+    try {
+      detail = ((await response.json()) as any)?.detail ?? null;
+    } catch {
+      detail = null;
+    }
+    throw new Error(detail ?? "Unable to delete activity.");
+  }
 }
 
 export type OrganiserRegistrationPayload = {
@@ -439,4 +584,24 @@ export async function acceptInvite({
 
   const payload = await handleResponse<RegistrationResponse>(response);
   return normaliseRegistration(payload);
+}
+
+export async function getTrailsOverview({
+  accessToken,
+  orgId,
+  signal,
+}: FetchOptions & { orgId: string }) {
+  const response = await fetch(
+    TRAILS_BASE_URL + "/trails/reports/orgs/" + orgId + "/overview",
+    {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer " + accessToken,
+      },
+      credentials: "include",
+      signal,
+    }
+  );
+
+  return handleResponse<TrailsOverview>(response);
 }

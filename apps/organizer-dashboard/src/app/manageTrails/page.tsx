@@ -14,6 +14,7 @@ import {
     RefreshCw,
     Users,
 } from "lucide-react";
+import QRCode from "qrcode";
 import { useAuth } from "../../context/AuthContext";
 import { listParticipants, resolveParticipantUserId, type UserSummary } from "../../services/auth";
 import {
@@ -23,24 +24,29 @@ import {
     confirmRegistration,
     createRegistrationForTrail,
     createTrail,
+    createTrailActivity,
     createTrailInvite,
     getRegistrationStatus,
     getTrail,
     getTrailRegistrations,
+    deleteTrailActivity,
     listOwnConfirmedTrails,
     listOwnRegistrations,
     listTrails,
+    listTrailActivities,
     previewInvite,
     rejectRegistration,
     Trail,
     TrailStatus,
     updateTrail,
+    updateTrailActivity,
     type InviteToken,
     type Registration,
     type CreateTrailPayload,
     type UpdateTrailPayload,
 } from "../../services/trails";
 import {
+    createActivityQr,
     createTrailQr,
     getTrailRoster,
     getTrailQrImage,
@@ -58,10 +64,13 @@ type TrailActivity = {
     points: number;
     notes?: string;
     qrToken?: TrailQrToken | null;
+    qrShareUrl?: string | null;
     // Object URL created from PNG blob; not persisted
     qrImageUrl?: string | null;
     // UI-only state: whether this item is being edited
     isEditing?: boolean;
+    // Whether the activity has been persisted to the backend
+    persisted?: boolean;
 };
 
 function makeId() {
@@ -76,8 +85,12 @@ function makeId() {
     ).toUpperCase();
 }
 
-function activitiesStorageKey(trailId: string) {
-    return `trailActivities:${trailId}`;
+function disposeObjectUrl(url: string | null | undefined) {
+    if (url && url.startsWith("blob:")) {
+        try {
+            disposeObjectUrl(url);
+        } catch { }
+    }
 }
 
 function appendQuery(url: string, params: Record<string, string | number | undefined>) {
@@ -404,6 +417,9 @@ export default function ManageTrailsPage() {
     const [alert, setAlert] = useState<AlertState>(null);
     const [invite, setInvite] = useState<InviteToken | null>(null);
     const [inviteLoading, setInviteLoading] = useState(false);
+    const [inviteQrUrl, setInviteQrUrl] = useState<string | null>(null);
+    const [inviteQrLoading, setInviteQrLoading] = useState(false);
+    const [inviteQrError, setInviteQrError] = useState<string | null>(null);
     const [manualRegistrationLoading, setManualRegistrationLoading] = useState(false);
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [showEditForm, setShowEditForm] = useState(false);
@@ -440,6 +456,9 @@ export default function ManageTrailsPage() {
     // Activities builder state (persisted per trail in localStorage)
     const [activities, setActivities] = useState<TrailActivity[]>([]);
     const [activitiesError, setActivitiesError] = useState<string | null>(null);
+    const [activitiesLoading, setActivitiesLoading] = useState(false);
+    const [activitiesSavingId, setActivitiesSavingId] = useState<string | null>(null);
+    const [activitiesDeletingId, setActivitiesDeletingId] = useState<string | null>(null);
     const [activityQrLoadingId, setActivityQrLoadingId] = useState<string | null>(null);
     const [bulkQrLoading, setBulkQrLoading] = useState(false);
 
@@ -448,73 +467,74 @@ export default function ManageTrailsPage() {
         [activities]
     );
 
-    const saveActivities = useCallback(
-        (trailId: string, items: TrailActivity[]) => {
-            if (typeof window === "undefined") return;
-            const payload = items.map(({ id, order, title, points, notes, qrToken }) => ({
-                id,
-                order,
-                title,
-                points,
-                notes,
-                qrToken: qrToken
-                    ? { token: qrToken.token, url: qrToken.url, expires_at: qrToken.expires_at }
-                    : null,
-            }));
+    const fetchActivities = useCallback(
+        async (trailId: string, options: { showLoading?: boolean } = {}) => {
+            if (!accessToken) {
+                return;
+            }
+            const { showLoading = false } = options;
+            if (showLoading) {
+                setActivitiesLoading(true);
+            }
+            setActivitiesError(null);
             try {
-                localStorage.setItem(activitiesStorageKey(trailId), JSON.stringify(payload));
-            } catch {
-                // ignore
+                const response = await listTrailActivities({ accessToken, trailId });
+                const ordered = [...response].sort((a, b) => a.order - b.order);
+                setActivities((prev) => {
+                    const previous = new Map(prev.map((entry) => [entry.id, entry]));
+                    const next = ordered.map((entry) => {
+                        const existing = previous.get(entry.id);
+                        return {
+                            id: entry.id,
+                            order: entry.order,
+                            title: entry.title,
+                            points: entry.points,
+                            notes: entry.notes ?? "",
+                            qrToken: existing?.qrToken ?? null,
+                            qrShareUrl: existing?.qrShareUrl ?? null,
+                            qrImageUrl: existing?.qrImageUrl ?? null,
+                            isEditing: false,
+                            persisted: true,
+                        } satisfies TrailActivity;
+                    });
+                    prev.forEach((item) => {
+                        if (!ordered.some((record) => record.id === item.id) && item.qrImageUrl) {
+                            disposeObjectUrl(item.qrImageUrl);
+                        }
+                    });
+                    return next;
+                });
+            } catch (err) {
+                setActivitiesError(getErrorMessage(err));
+                setActivities([]);
+            } finally {
+                if (showLoading) {
+                    setActivitiesLoading(false);
+                }
             }
         },
-        []
+        [accessToken]
     );
 
     useEffect(() => {
-        // Load activities when trail selection changes
-        if (!selectedTrailId) {
-            // revoke object URLs
-            activities.forEach((a) => a.qrImageUrl && URL.revokeObjectURL(a.qrImageUrl));
-            setActivities([]);
+        // Clear existing activity state when switching trails or losing auth
+        setActivities((prev) => {
+            prev.forEach((activity) => {
+                if (activity.qrImageUrl) {
+                    disposeObjectUrl(activity.qrImageUrl);
+                }
+            });
+            return [];
+        });
+        setActivitiesError(null);
+
+        if (!selectedTrailId || !accessToken) {
+            setActivitiesLoading(false);
             return;
         }
-        let parsed: any[] | null = null;
-        try {
-            const raw = typeof window !== "undefined" ? localStorage.getItem(activitiesStorageKey(selectedTrailId)) : null;
-            parsed = raw ? (JSON.parse(raw) as any[]) : null;
-        } catch {
-            parsed = null;
-        }
-        const restored: TrailActivity[] = Array.isArray(parsed)
-            ? parsed
-                  .map((e) => {
-                      const item: TrailActivity = {
-                          id: String(e.id ?? makeId()),
-                          order: Number(e.order ?? 0) || 0,
-                          title: String(e.title ?? ""),
-                          points: Number(e.points ?? 0) || 0,
-                          notes: e.notes ? String(e.notes) : undefined,
-                          qrToken: e.qrToken ?? null,
-                          qrImageUrl: null,
-                          isEditing: false,
-                      };
-                      return item;
-                  })
-                  .sort((a, b) => a.order - b.order)
-                  .map((e, i) => ({ ...e, order: i + 1 }))
-            : [];
-        // revoke previous images then set
-        activities.forEach((a) => a.qrImageUrl && URL.revokeObjectURL(a.qrImageUrl));
-        setActivities(restored);
-        setActivitiesError(null);
-    }, [selectedTrailId]);
 
-    useEffect(() => {
-        // Persist activities on change
-        if (selectedTrailId) {
-            saveActivities(selectedTrailId, activities);
-        }
-    }, [activities, saveActivities, selectedTrailId]);
+        void fetchActivities(selectedTrailId, { showLoading: true });
+    }, [selectedTrailId, accessToken, fetchActivities]);
 
     const addActivity = useCallback(() => {
         setActivities((prev) => {
@@ -528,37 +548,99 @@ export default function ManageTrailsPage() {
                     points: 0,
                     notes: "",
                     qrToken: null,
+                    qrShareUrl: null,
                     qrImageUrl: null,
                     isEditing: true,
+                    persisted: false,
                 },
             ];
         });
     }, []);
 
-    const removeActivity = useCallback((id: string) => {
-        setActivities((prev) => {
-            const target = prev.find((a) => a.id === id);
-            if (target?.qrImageUrl) {
-                URL.revokeObjectURL(target.qrImageUrl);
+    const removeActivity = useCallback(
+        async (id: string) => {
+            setActivitiesError(null);
+            const target = activities.find((a) => a.id === id);
+            if (!target) {
+                return;
             }
-            const remaining = prev.filter((a) => a.id !== id).sort((a, b) => a.order - b.order);
-            return remaining.map((a, i) => ({ ...a, order: i + 1 }));
-        });
-    }, []);
+            if (!target.persisted) {
+                setActivities((prev) => {
+                    const toRemove = prev.find((a) => a.id === id);
+                    if (toRemove?.qrImageUrl) {
+                        disposeObjectUrl(toRemove.qrImageUrl);
+                    }
+                    const remaining = prev
+                        .filter((a) => a.id !== id)
+                        .sort((a, b) => a.order - b.order)
+                        .map((a, index) => ({ ...a, order: index + 1 }));
+                    return remaining;
+                });
+                return;
+            }
+            if (!selectedTrailId || !accessToken) {
+                setActivitiesError("Select a trail first.");
+                return;
+            }
+            setActivitiesDeletingId(id);
+            try {
+                await deleteTrailActivity({
+                    accessToken,
+                    trailId: selectedTrailId,
+                    activityId: id,
+                });
+                if (target.qrImageUrl) {
+                    disposeObjectUrl(target.qrImageUrl);
+                }
+                await fetchActivities(selectedTrailId);
+                setAlert({ type: "success", message: "Activity removed." });
+            } catch (err) {
+                setActivitiesError(getErrorMessage(err));
+            } finally {
+                setActivitiesDeletingId(null);
+            }
+        },
+        [activities, accessToken, selectedTrailId, fetchActivities]
+    );
 
-    const moveActivity = useCallback((id: string, direction: -1 | 1) => {
-        setActivities((prev) => {
-            const items = [...prev].sort((a, b) => a.order - b.order);
-            const index = items.findIndex((a) => a.id === id);
-            if (index < 0) return prev;
-            const targetIndex = index + direction;
-            if (targetIndex < 0 || targetIndex >= items.length) return prev;
-            const tmp = items[index];
-            items[index] = items[targetIndex];
-            items[targetIndex] = tmp;
-            return items.map((a, i) => ({ ...a, order: i + 1 }));
-        });
-    }, []);
+    const moveActivity = useCallback(
+        async (id: string, direction: -1 | 1) => {
+            if (!selectedTrailId || !accessToken) {
+                setActivitiesError("Select a trail first.");
+                return;
+            }
+            const items = [...sortedActivities];
+            const currentIndex = items.findIndex((a) => a.id === id);
+            if (currentIndex < 0) {
+                return;
+            }
+            const targetIndex = currentIndex + direction;
+            if (targetIndex < 0 || targetIndex >= items.length) {
+                return;
+            }
+            const currentItem = items[currentIndex];
+            if (!currentItem.persisted) {
+                setActivitiesError("Save the activity before reordering.");
+                return;
+            }
+            const targetOrder = items[targetIndex].order;
+            setActivitiesSavingId(id);
+            try {
+                await updateTrailActivity({
+                    accessToken,
+                    trailId: selectedTrailId,
+                    activityId: id,
+                    payload: { order: targetOrder },
+                });
+                await fetchActivities(selectedTrailId);
+            } catch (err) {
+                setActivitiesError(getErrorMessage(err));
+            } finally {
+                setActivitiesSavingId(null);
+            }
+        },
+        [accessToken, selectedTrailId, sortedActivities, fetchActivities]
+    );
 
     const updateActivityField = useCallback(
         (id: string, patch: Partial<Pick<TrailActivity, "title" | "points" | "notes">>) => {
@@ -571,22 +653,77 @@ export default function ManageTrailsPage() {
         setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, isEditing: editing } : a)));
     }, []);
 
-    const saveActivity = useCallback((id: string) => {
-        setActivitiesError(null);
-        setActivities((prev) => {
-            const next = prev.map((a) => {
-                if (a.id !== id) return a;
-                const title = (a.title ?? "").trim();
-                const points = Number.isFinite(a.points) ? Math.max(0, Math.floor(a.points)) : 0;
-                if (!title) {
-                    setActivitiesError("Activity title is required.");
-                    return { ...a };
+    const saveActivity = useCallback(
+        async (id: string) => {
+            setActivitiesError(null);
+            const target = activities.find((a) => a.id === id);
+            if (!target) {
+                return;
+            }
+            const title = (target.title ?? "").trim();
+            const points = Number.isFinite(target.points)
+                ? Math.max(0, Math.floor(target.points))
+                : 0;
+            if (!title) {
+                setActivitiesError("Activity title is required.");
+                return;
+            }
+
+            const notesValue = target.notes ? target.notes.trim() : "";
+            setActivities((prev) =>
+                prev.map((a) =>
+                    a.id === id
+                        ? { ...a, title, points, notes: notesValue }
+                        : a
+                )
+            );
+
+            if (!selectedTrailId || !accessToken) {
+                setActivitiesError("Select a trail first.");
+                return;
+            }
+
+            setActivitiesSavingId(id);
+            try {
+                if (target.persisted) {
+                    await updateTrailActivity({
+                        accessToken,
+                        trailId: selectedTrailId,
+                        activityId: id,
+                        payload: {
+                            title,
+                            points,
+                            notes: notesValue ? notesValue : null,
+                            order: target.order,
+                        },
+                    });
+                } else {
+                    await createTrailActivity({
+                        accessToken,
+                        trailId: selectedTrailId,
+                        payload: {
+                            title,
+                            points,
+                            notes: notesValue ? notesValue : undefined,
+                            order: target.order,
+                        },
+                    });
                 }
-                return { ...a, title, points, isEditing: false };
-            });
-            return next;
-        });
-    }, []);
+                await fetchActivities(selectedTrailId);
+                setAlert({ type: "success", message: "Activity saved." });
+            } catch (err) {
+                setActivitiesError(getErrorMessage(err));
+                setActivities((prev) =>
+                    prev.map((a) =>
+                        a.id === id ? { ...a, isEditing: true } : a
+                    )
+                );
+            } finally {
+                setActivitiesSavingId(null);
+            }
+        },
+        [activities, accessToken, selectedTrailId, fetchActivities]
+    );
 
     const selectedTrail = useMemo(
         () => trails.find((trail) => trail.id === selectedTrailId) ?? null,
@@ -601,17 +738,39 @@ export default function ManageTrailsPage() {
             setActivitiesError(null);
             setActivityQrLoadingId(id);
             try {
-                const qr = await createTrailQr({ accessToken, trailId: selectedTrailId });
-                // grab PNG immediately for this token
-                const blob = await getTrailQrImage({ accessToken, trailId: selectedTrailId });
-                const objectUrl = URL.createObjectURL(blob);
+                const activity = activities.find((entry) => entry.id === id);
+                if (!activity) {
+                    setActivitiesError("Activity not found.");
+                    return;
+                }
+                const qr = await createActivityQr({
+                    accessToken,
+                    trailId: selectedTrailId,
+                    activityId: activity.id,
+                    activityOrder: activity.order,
+                    points: activity.points,
+                });
+                const shareUrl = qr.url
+                    ? qr.url
+                    : appendQuery("/checkin/scan", {
+                          token: qr.token,
+                          a: activity.order,
+                          p: activity.points,
+                          t: activity.id,
+                      });
+                const dataUrl = await QRCode.toDataURL(shareUrl, { width: 320, margin: 1 });
                 setActivities((prev) =>
                     prev.map((a) => {
                         if (a.id !== id) return a;
                         if (a.qrImageUrl) {
-                            URL.revokeObjectURL(a.qrImageUrl);
+                            disposeObjectUrl(a.qrImageUrl);
                         }
-                        return { ...a, qrToken: qr, qrImageUrl: objectUrl };
+                        return {
+                            ...a,
+                            qrToken: qr,
+                            qrShareUrl: shareUrl,
+                            qrImageUrl: dataUrl,
+                        };
                     })
                 );
                 setAlert({ type: "success", message: "Generated activity QR." });
@@ -622,7 +781,7 @@ export default function ManageTrailsPage() {
                 setActivityQrLoadingId(null);
             }
         },
-        [accessToken, selectedTrailId]
+        [accessToken, activities, selectedTrailId]
     );
 
     const generateAllActivityQrs = useCallback(async () => {
@@ -635,17 +794,35 @@ export default function ManageTrailsPage() {
         try {
             for (const item of sortedActivities) {
                 // eslint-disable-next-line no-await-in-loop
-                const qr = await createTrailQr({ accessToken, trailId: selectedTrailId });
+                const qr = await createActivityQr({
+                    accessToken,
+                    trailId: selectedTrailId,
+                    activityId: item.id,
+                    activityOrder: item.order,
+                    points: item.points,
+                });
+                const shareUrl = qr.url
+                    ? qr.url
+                    : appendQuery("/checkin/scan", {
+                          token: qr.token,
+                          a: item.order,
+                          p: item.points,
+                          t: item.id,
+                      });
                 // eslint-disable-next-line no-await-in-loop
-                const blob = await getTrailQrImage({ accessToken, trailId: selectedTrailId });
-                const objectUrl = URL.createObjectURL(blob);
+                const dataUrl = await QRCode.toDataURL(shareUrl, { width: 320, margin: 1 });
                 setActivities((prev) =>
                     prev.map((a) => {
                         if (a.id !== item.id) return a;
                         if (a.qrImageUrl) {
-                            URL.revokeObjectURL(a.qrImageUrl);
+                            disposeObjectUrl(a.qrImageUrl);
                         }
-                        return { ...a, qrToken: qr, qrImageUrl: objectUrl };
+                        return {
+                            ...a,
+                            qrToken: qr,
+                            qrShareUrl: shareUrl,
+                            qrImageUrl: dataUrl,
+                        };
                     })
                 );
             }
@@ -665,11 +842,13 @@ export default function ManageTrailsPage() {
                 setAlert({ type: "error", message: "Clipboard copy is unavailable in this browser." });
                 return;
             }
-            const enriched = appendQuery(item.qrToken.url, {
-                a: item.order,
-                p: item.points,
-                t: item.id,
-            });
+            const enriched =
+                item.qrShareUrl ??
+                appendQuery(item.qrToken.url, {
+                    a: item.order,
+                    p: item.points,
+                    t: item.id,
+                });
             void navigator.clipboard
                 .writeText(enriched)
                 .then(() => setAlert({ type: "success", message: "Activity link copied to clipboard." }))
@@ -773,7 +952,7 @@ export default function ManageTrailsPage() {
     useEffect(() => {
         return () => {
             if (checkinQrImageUrl) {
-                URL.revokeObjectURL(checkinQrImageUrl);
+                disposeObjectUrl(checkinQrImageUrl);
             }
         };
     }, [checkinQrImageUrl]);
@@ -1310,6 +1489,60 @@ export default function ManageTrailsPage() {
     }, [invite]);
 
     useEffect(() => {
+        let active = true;
+        const generate = async () => {
+            if (!invite) {
+                if (active) {
+                    setInviteQrUrl(null);
+                    setInviteQrError(null);
+                    setInviteQrLoading(false);
+                }
+                return;
+            }
+            setInviteQrLoading(true);
+            setInviteQrError(null);
+            try {
+                const target = invite.url ?? invite.invite_token;
+                const dataUrl = await QRCode.toDataURL(target, { width: 320, margin: 1 });
+                if (active) {
+                    setInviteQrUrl(dataUrl);
+                }
+            } catch (err) {
+                if (active) {
+                    setInviteQrUrl(null);
+                    setInviteQrError("Unable to generate the invite QR image. Copy the link instead.");
+                }
+            } finally {
+                if (active) {
+                    setInviteQrLoading(false);
+                }
+            }
+        };
+        void generate();
+        return () => {
+            active = false;
+        };
+    }, [invite]);
+
+    const downloadInviteQr = useCallback(() => {
+        if (!inviteQrUrl || typeof window === "undefined") {
+            return;
+        }
+        try {
+            const link = document.createElement("a");
+            const safeTitle =
+                selectedTrailDetail?.title?.replace(/\s+/g, "-").toLowerCase() ?? "trail-invite";
+            link.href = inviteQrUrl;
+            link.download = `${safeTitle}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (err) {
+            setAlert({ type: "error", message: "Unable to download QR image. Try right-clicking the preview instead." });
+        }
+    }, [inviteQrUrl, selectedTrailDetail?.title]);
+
+    useEffect(() => {
         if (!alert) {
             return;
         }
@@ -1552,11 +1785,11 @@ export default function ManageTrailsPage() {
                                                 Expires at {formatDate(invite.expires_at)}
                                             </div>
                                         </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                className="border border-white px-3 py-1 text-xs"
-                                                onClick={copyInvite}
+                                         <div className="flex flex-wrap gap-2">
+                                             <Button
+                                                 variant="ghost"
+                                                 className="border border-white px-3 py-1 text-xs"
+                                                 onClick={copyInvite}
                                             >
                                                 <Copy className="h-3 w-3" /> Copy
                                             </Button>
@@ -1573,24 +1806,57 @@ export default function ManageTrailsPage() {
                                                 )}
                                                 Preview
                                             </Button>
-                                            <Button
-                                                variant="ghost"
-                                                className="border border-white px-3 py-1 text-xs"
-                                                onClick={handleAcceptInvite}
-                                                disabled={inviteRegisterLoading}
-                                            >
+                                             <Button
+                                                 variant="ghost"
+                                                 className="border border-white px-3 py-1 text-xs"
+                                                 onClick={handleAcceptInvite}
+                                                 disabled={inviteRegisterLoading}
+                                             >
                                                 {inviteRegisterLoading ? (
                                                     <Loader2 className="h-3 w-3 animate-spin" />
                                                 ) : (
                                                     <Users className="h-3 w-3" />
                                                 )}
-                                                Test invite
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    {invitePreviewError ? (
-                                        <p className="text-xs text-rose-600">{invitePreviewError}</p>
-                                    ) : null}
+                                                 Test invite
+                                             </Button>
+                                             <Button
+                                                 variant="ghost"
+                                                 className="border border-white px-3 py-1 text-xs"
+                                                 onClick={downloadInviteQr}
+                                                 disabled={inviteQrLoading || !inviteQrUrl}
+                                             >
+                                                 {inviteQrLoading ? (
+                                                     <Loader2 className="h-3 w-3 animate-spin" />
+                                                 ) : (
+                                                     <Download className="h-3 w-3" />
+                                                 )}
+                                                 Invite QR
+                                             </Button>
+                                         </div>
+                                     </div>
+                                     {inviteQrLoading ? (
+                                         <p className="text-xs text-teal-600">Preparing QR image…</p>
+                                     ) : inviteQrUrl ? (
+                                         <div className="flex flex-wrap items-center gap-4 rounded-lg border border-white/60 bg-white/70 p-3">
+                                             <div className="rounded-xl bg-white p-3 shadow">
+                                                 <img
+                                                     src={inviteQrUrl}
+                                                     alt="Trail invite QR"
+                                                     className="h-32 w-32"
+                                                 />
+                                             </div>
+                                             <p className="text-xs text-teal-800 max-w-xs">
+                                                 Print or share this QR so seniors can open the invite link directly from
+                                                 their camera apps.
+                                             </p>
+                                         </div>
+                                     ) : null}
+                                     {inviteQrError ? (
+                                         <p className="text-xs text-rose-600">{inviteQrError}</p>
+                                     ) : null}
+                                     {invitePreviewError ? (
+                                         <p className="text-xs text-rose-600">{invitePreviewError}</p>
+                                     ) : null}
                                     {inviteDetails ? (
                                         <div className="rounded-md border border-teal-200 bg-white/80 p-3 text-xs text-teal-800">
                                             <div className="font-semibold">Previewed trail</div>
@@ -1705,6 +1971,7 @@ export default function ManageTrailsPage() {
                                             variant="ghost"
                                             className="border border-gray-200 px-3 py-1 text-xs"
                                             onClick={addActivity}
+                                            disabled={!selectedTrailId || activitiesLoading}
                                         >
                                             <Plus className="h-3 w-3" /> Add activity
                                         </Button>
@@ -1732,7 +1999,11 @@ export default function ManageTrailsPage() {
                                         {activitiesError}
                                     </div>
                                 ) : null}
-                                {sortedActivities.length === 0 ? (
+                                {activitiesLoading ? (
+                                    <div className="flex justify-center py-6 text-teal-600">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    </div>
+                                ) : sortedActivities.length === 0 ? (
                                     <p className="text-sm text-gray-500">No activities yet.</p>
                                 ) : (
                                     <div className="space-y-3">
@@ -1755,23 +2026,24 @@ export default function ManageTrailsPage() {
                                                             <div className="flex items-center gap-2">
                                                                 <button
                                                                     className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                                                                    onClick={() => moveActivity(item.id, -1)}
-                                                                    disabled={index === 0}
+                                                                    onClick={() => void moveActivity(item.id, -1)}
+                                                                    disabled={!item.persisted || index === 0 || activitiesSavingId === item.id || activitiesLoading}
                                                                 >
                                                                     Move up
                                                                 </button>
                                                                 <button
                                                                     className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                                                                    onClick={() => moveActivity(item.id, 1)}
-                                                                    disabled={index === sortedActivities.length - 1}
+                                                                    onClick={() => void moveActivity(item.id, 1)}
+                                                                    disabled={!item.persisted || index === sortedActivities.length - 1 || activitiesSavingId === item.id || activitiesLoading}
                                                                 >
                                                                     Move down
                                                                 </button>
                                                                 <button
                                                                     className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
-                                                                    onClick={() => removeActivity(item.id)}
+                                                                    onClick={() => void removeActivity(item.id)}
+                                                                    disabled={activitiesDeletingId === item.id || activitiesSavingId === item.id}
                                                                 >
-                                                                    Remove
+                                                                    {activitiesDeletingId === item.id ? "Removing..." : "Remove"}
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -1802,9 +2074,10 @@ export default function ManageTrailsPage() {
                                                             <Button
                                                                 variant="ghost"
                                                                 className="border border-gray-200 px-3 py-1 text-xs"
-                                                                onClick={() => saveActivity(item.id)}
+                                                                onClick={() => void saveActivity(item.id)}
+                                                                disabled={activitiesSavingId === item.id}
                                                             >
-                                                                Save
+                                                                {activitiesSavingId === item.id ? "Saving..." : "Save"}
                                                             </Button>
                                                         </div>
                                                     </>
@@ -1828,6 +2101,7 @@ export default function ManageTrailsPage() {
                                                                 <button
                                                                     className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
                                                                     onClick={() => setActivityEditing(item.id, true)}
+                                                                    disabled={activitiesSavingId === item.id || activitiesLoading}
                                                                 >
                                                                     Edit details
                                                                 </button>
@@ -1850,7 +2124,7 @@ export default function ManageTrailsPage() {
                                                             <div className="space-y-1 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-xs text-teal-800">
                                                                 <div>Expires {formatDate(new Date(item.qrToken.expires_at * 1000).toISOString())}</div>
                                                                 <div className="break-all text-teal-700">
-                                                                    {appendQuery(item.qrToken.url, { a: item.order, p: item.points, t: item.id })}
+                                                                    {item.qrShareUrl ?? appendQuery(item.qrToken.url, { a: item.order, p: item.points, t: item.id })}
                                                                 </div>
                                                                 <div className="font-mono text-teal-900">Token: {item.qrToken.token}</div>
                                                                 <div className="flex flex-wrap items-center gap-2 pt-1">

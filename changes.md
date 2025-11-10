@@ -50,3 +50,4 @@
 - Added an organiser Rewards tab that lists organisation vouchers, lets admins create new rewards, and toggle voucher status without leaving the dashboard (`apps/organizer-dashboard/src/app/rewards/page.tsx`, `src/services/vouchers.ts`, `src/app/layout.tsx`).
 - Restored separate Points and Rewards tabs so ledger management and voucher catalogues live on dedicated pages (`apps/organizer-dashboard/src/app/layout.tsx`, `src/app/points/page.tsx`, `src/app/rewards/page.tsx`).
 - Documented why per-trail reward overrides are unavailable today and what backend work is required before implementing them (`docs/backend-support.md`).
+- Organizer dashboard Insights now shows reporting cards (membership snapshot, attendance trends, trail overview, and points activity) powered by the new backend reporting endpoints (`apps/organizer-dashboard/src/app/insights/page.tsx`, `src/services/auth.ts`, `src/services/leaderboard.ts`, `src/services/points.ts`, `src/services/trails.ts`).

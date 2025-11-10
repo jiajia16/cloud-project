@@ -77,6 +77,17 @@ export async function getMyConfirmedTrails({ accessToken, signal } = {}) {
     });
 }
 
+export async function getMyTrailActivities({ accessToken, trailId, signal } = {}) {
+    if (!trailId) {
+        throw new Error("trailId is required");
+    }
+    return request(`/users/me/trails/${trailId}/activities`, {
+        method: "GET",
+        token: accessToken,
+        signal,
+    });
+}
+
 export async function registerForTrail({ accessToken, trailId, note, signal } = {}) {
     if (!trailId) {
         throw new Error("trailId is required");

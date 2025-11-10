@@ -72,6 +72,33 @@ export type AdjustPointsPayload = {
     reason?: string;
 };
 
+export type PointsTopUser = {
+    user_id: string;
+    total_awarded: number;
+};
+
+export type PointsSummary = {
+    org_id: string;
+    range_start: string;
+    range_end: string;
+    awarded_total: number;
+    redeemed_total: number;
+    net_delta: number;
+    free_redemptions: number;
+    top_earners: PointsTopUser[];
+};
+
+export type RedemptionItem = {
+    id: string;
+    voucher_id: string;
+    user_id: string;
+    org_id: string;
+    status: string;
+    redeemed_at: string;
+    voucher_name?: string | null;
+    voucher_code?: string | null;
+};
+
 function buildQuery(params: Record<string, QueryValue>) {
     const search = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -338,4 +365,45 @@ export async function updateVoucher({
     );
 
     return handleResponse<Voucher>(response);
+}
+
+export async function getOrgPointsSummary({
+    accessToken,
+    orgId,
+    dateFrom,
+    dateTo,
+    signal,
+}: FetchOptions & { orgId: string; dateFrom?: string; dateTo?: string }) {
+    const qs = buildQuery({ date_from: dateFrom, date_to: dateTo });
+    const response = await fetch(
+        POINTS_BASE_URL + "/points/reports/orgs/" + orgId + "/points-summary" + qs,
+        {
+            method: "GET",
+            headers: authHeaders(accessToken),
+            credentials: "include",
+            signal,
+        }
+    );
+
+    return handleResponse<PointsSummary>(response);
+}
+
+export async function getRecentRedemptions({
+    accessToken,
+    orgId,
+    limit,
+    signal,
+}: FetchOptions & { orgId: string; limit?: number }) {
+    const qs = buildQuery({ limit });
+    const response = await fetch(
+        POINTS_BASE_URL + "/points/reports/orgs/" + orgId + "/redemptions/recent" + qs,
+        {
+            method: "GET",
+            headers: authHeaders(accessToken),
+            credentials: "include",
+            signal,
+        }
+    );
+
+    return handleResponse<RedemptionItem[]>(response);
 }
