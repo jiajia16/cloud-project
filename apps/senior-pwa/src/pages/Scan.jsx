@@ -342,37 +342,40 @@ export default function Scan() {
             </p>
 
             {canLiveScan ? (
-              <div className="mt-5 rounded-2xl border border-gray-200 overflow-hidden">
-                <div className="relative w-full aspect-[4/3] sm:aspect-video bg-black/60">
-                  <QRScanner onResult={handleScanResult} />
-                  <div className="pointer-events-none absolute inset-0 ring-2 ring-white/30" />
-                </div>
-              </div>
+              <QRScanner
+                onResult={handleScanResult}
+                onUnavailable={() => setCanLiveScan(false)}   // <-- auto fallback
+                className="mt-5"
+              />
             ) : (
-              // --- Cleaner Upload Fallback ---
-              <div className="mt-5 rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 p-8 flex flex-col items-center justify-center text-center">
-                <Upload className="w-6 h-6 text-teal-600 mb-2" />
-                <h3 className="font-semibold text-gray-800 text-sm">
-                  Your device doesn’t support live scan
-                </h3>
-                <p className="text-xs text-gray-600 mt-1 mb-4">
-                  Upload a clear screenshot or photo of the QR code (PNG or JPG).
-                </p>
-                <Button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-5 py-2 text-sm"
-                  disabled={loading}
-                >
-                  Choose Image
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={onUpload}
-                  className="hidden"
-                />
+              <div className="mt-5 rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 p-6 sm:p-8">
+                <div className="mx-auto max-w-md flex flex-col items-center text-center space-y-2">
+                  <Upload className="w-6 h-6 text-teal-600 mb-1" />
+                  <h3 className="font-semibold text-gray-800 text-sm">
+                    Upload a QR code image
+                  </h3>
+                  <p className="text-xs text-gray-600">
+                    PNG or JPG works best. We’ll read the code and submit automatically.
+                  </p>
+                  <div className="pt-3">
+                    <Button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      variant="positive"
+                      className="px-4 py-2 text-sm"
+                      disabled={loading}
+                    >
+                      Choose Image
+                    </Button>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={onUpload}
+                    className="hidden"
+                  />
+                </div>
               </div>
             )}
 

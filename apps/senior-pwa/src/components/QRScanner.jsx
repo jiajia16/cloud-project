@@ -1,59 +1,112 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 
-/**
- * Simple QR/Barcode scanner using BarcodeDetector if supported.
- * Falls back to file upload.
- */
-export default function QRScanner({ onResult }) {
-    const videoRef = useRef(null);
-    const [supported, setSupported] = useState(false);
-    const [error, setError] = useState("");
+export default function QRScanner({
+  onResult,
+  onUnavailable,  // <-- call this to switch to upload UI
+  className = ""
+}) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const fallbackCalled = useRef(false);
 
-    useEffect(() => {
-        const has = "BarcodeDetector" in window;
-        setSupported(has);
-        if (!has) return;
+  useEffect(() => {
+    let stopped = false;
 
-        let stream;
-        const start = async () => {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    await videoRef.current.play();
-                }
-                const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
-                const tick = async () => {
-                    if (!videoRef.current) return;
-                    try {
-                        const bitmap = await createImageBitmap(videoRef.current);
-                        const codes = await detector.detect(bitmap);
-                        if (codes.length && onResult) onResult(codes[0].rawValue);
-                    } catch { /* ignore */ }
-                    requestAnimationFrame(tick);
-                };
-                requestAnimationFrame(tick);
-            } catch (e) {
-                setError("Camera access failed. Please allow camera permission.");
-            }
-        };
-        start();
-        return () => stream && stream.getTracks().forEach(t => t.stop());
-    }, [onResult]);
+    const fallback = (why = "") => {
+      if (fallbackCalled.current) return;
+      fallbackCalled.current = true;
+      if (onUnavailable) onUnavailable(why);
+    };
 
-    if (!supported) {
-        return (
-            <div className="flex flex-col items-center gap-3">
-                <p className="text-gray-700">Your device doesn’t support live scan. Upload a QR screenshot:</p>
-                <input type="file" accept="image/*" className="block" onChange={() => onResult?.("DEMO_QR_123")} />
-            </div>
-        );
-    }
+    const start = async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          fallback("getUserMedia not supported");
+          return;
+        }
 
-    return (
-        <>
-            {error ? <p className="text-rose-600">{error}</p> : null}
-            <video ref={videoRef} className="w-full rounded-2xl bg-black aspect-square object-cover" />
-        </>
-    );
+        // Prefer environment (rear) camera on mobile
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false
+        });
+
+        if (stopped) {
+          // If component unmounted during permission prompt
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            try { videoRef.current.play(); } catch {}
+          };
+        }
+
+        // ---- Your existing decoder init (e.g., @zxing/browser) goes here ----
+        // Example sketch:
+        // const codeReader = new BrowserMultiFormatReader();
+        // codeReader.decodeFromVideoDevice(null, videoRef.current, (res, err) => {
+        //   if (res) onResult?.(res.getText());
+        // });
+        // cleanupRef.current = () => codeReader.reset();
+
+      } catch (err) {
+        fallback(err?.name || "camera error");
+      }
+    };
+
+    // Watchdog: if the video never starts, bail out to upload flow
+    const wd = setTimeout(() => {
+      const v = videoRef.current;
+      const stalled =
+        !v || v.readyState < 2 || v.videoWidth === 0 || v.videoHeight === 0;
+      if (stalled) fallback("video stalled");
+    }, 6000);
+
+    start();
+
+    return () => {
+      stopped = true;
+      clearTimeout(wd);
+      try {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => t.stop());
+        }
+      } catch {}
+    };
+  }, [onResult, onUnavailable]);
+
+  return (
+    <div
+      className={[
+        "rounded-2xl border border-gray-200 overflow-hidden",
+        className,
+      ].join(" ")}
+    >
+      <div className="relative w-full aspect-[4/3] sm:aspect-video bg-black">
+        <video
+          ref={videoRef}
+          className="absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          playsInline
+          muted
+        />
+        <div className="pointer-events-none absolute inset-0 ring-2 ring-white/30" />
+      </div>
+
+      {/* tiny footer row for manual switch */}
+      <div className="flex items-center justify-end gap-2 px-4 py-3 bg-white">
+        <button
+          type="button"
+          onClick={() => onUnavailable?.("user-chose-upload")}
+          className="text-sm font-medium text-teal-700 hover:text-teal-800 underline underline-offset-4"
+        >
+          Camera not working? Upload instead
+        </button>
+      </div>
+    </div>
+  );
 }

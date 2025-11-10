@@ -145,10 +145,10 @@ export default function MyTrails() {
                     trail,
                     registration: registrationData
                         ? {
-                              id: registrationData.id,
-                              status: registrationData.status,
-                              note: registrationData.note ?? "",
-                          }
+                            id: registrationData.id,
+                            status: registrationData.status,
+                            note: registrationData.note ?? "",
+                        }
                         : null,
                 },
             });
@@ -202,22 +202,17 @@ export default function MyTrails() {
                 )}
 
                 <div className="flex flex-wrap items-center gap-3">
-                    <Button
-                        onClick={() => fetchAll()}
-                        className="flex items-center gap-2 border border-teal-300 text-teal-700 bg-white hover:bg-teal-50"
-                        disabled={loading}
-                    >
+                    <Button onClick={() => fetchAll()} variant="neutral" disabled={loading}>
                         <RefreshCcw className="w-4 h-4" />
                         Refresh
                     </Button>
-                    <Button
-                        onClick={() => navigate("/scan")}
-                        className="flex items-center gap-2 bg-gradient-to-r from-teal-400 to-cyan-400 text-white"
-                    >
-                        <Camera className="w-5 h-5" />
+
+                    <Button onClick={() => navigate("/scan")} variant="positive">
+                        <Camera className="w-4 h-4" />
                         Scan QR to Mark Activity Done
                     </Button>
                 </div>
+
 
                 <SectionTitle title="Registered Activities" />
                 {loading && enrichedRegistrations.length === 0 ? (
