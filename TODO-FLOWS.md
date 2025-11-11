@@ -76,3 +76,5 @@ INSIGHTS
 - [X] can see all the real-time data very nice 
 REPORTS
 - [X] not yet implemented the export but it is ok, not the main things (for now can be just for UI)
+
+- [] on the org, the expired date and time for qr code not accurate
