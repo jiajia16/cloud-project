@@ -44,3 +44,35 @@ Additional clarifications of the open items above:
 - [x] Persist per-trail activity definitions from Manage Trails into backend storage so organiser-created activities survive refreshes.
 - [x] Ensure leaderboards refresh when multiple seniors join the same organisation and support multi-activity trails awarding points after each activity's QR scan (backend now trusts activity metadata from QR tokens; still need senior app auto-selection + end-to-end verification).
 - [] Extend QR token lifespans to match the full trail duration so organisers don't reissue codes mid-event.
+
+11th Nov flow run test
+SIGNUP & SIGNIN
+- [] on org - lack of organiser signup/ organisation creation/ 
+- [X] on org - login as admin and password (from create admin) all working
+- [X] on senior - sign up & sign in & log out all working
+- [X] on senior - join the organisations by selecting from drop-down list working (as automatically joined)
+- [X] on org - organiser created a new trail -> on senior yes, only join the org then can see the activities
+JOIN A TRAIL
+- [] on org - organiser generated qr to join the trail -> can generate but on senior - the senior scan -> "invalid or expired token"
+- [] on org - organiser generated invite link to join the trail -> can generate but on senior - the senior paste the link -> "not found/ invalid"
+- [X] on senior - can join under the list of trails via button "JOIN TRAIL"
+APPROVE/ CONFIRM THE PARTICIPANTS & CHECKIN
+- [X] after apply for the trail, it shows the requests on the org -> organiser can approve/ confirm/ cancel
+- [X] after confirm -> then the senior can scan qr to checkin
+- [X] on senior -can checkin using QR code/ paste the link 
+ACTIVITIES INTO THE TRAILS
+- [X] on org - organiser can add/ remove an activity with the points rewarded and via scan QR code
+- [] on org - organiser generate qr code for an activity not yet STATIC/ event duration
+- [] on senior - senior scan and get the points, might need to improve the "Scan successfully confirm UI page" abit
+SCORE & POINTS AND LEADERBOARD
+- [X] on senior - the leaderboard seems ranking based on activities done, not the current rewards points
+- [X] on senior - the leaderboard can view org/ system wide
+- [X] on org - org can manually add the scores and shown on the senior side
+REWARDS & REDEEMPTION
+- [X] on senior - show correctly the rewarded points
+- [X] on org - can create voucher with points costed, code
+- [X] on senior - senior can redeemed and view the code successfully
+INSIGHTS 
+- [X] can see all the real-time data very nice 
+REPORTS
+- [X] not yet implemented the export but it is ok, not the main things (for now can be just for UI)
