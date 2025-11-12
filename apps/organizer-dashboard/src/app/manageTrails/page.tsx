@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useAuth } from "../../context/AuthContext";
+import { useOrganisation } from "../../context/OrganisationContext";
 import { listParticipants, resolveParticipantUserId, type UserSummary } from "../../services/auth";
 import {
     acceptInvite,
@@ -401,8 +402,8 @@ function ManualRegistrationForm({ onSubmit, submitting }: ManualRegistrationProp
 export default function ManageTrailsPage() {
     const { tokens, user } = useAuth();
     const accessToken = tokens?.access_token ?? null;
+    const { organisationId: orgId, activeOrganisation } = useOrganisation();
     const organiserOrgIds = user?.org_ids ?? [];
-    const [orgId, setOrgId] = useState<string | null>(null);
     const [trails, setTrails] = useState<Trail[]>([]);
     const [loadingTrails, setLoadingTrails] = useState(false);
     const [trailError, setTrailError] = useState<string | null>(null);
@@ -857,19 +858,6 @@ export default function ManageTrailsPage() {
         []
     );
 
-
-    useEffect(() => {
-        if (!organiserOrgIds.length) {
-            setOrgId(null);
-            return;
-        }
-        setOrgId((current) => {
-            if (current && organiserOrgIds.includes(current)) {
-                return current;
-            }
-            return organiserOrgIds[0];
-        });
-    }, [organiserOrgIds]);
 
     useEffect(() => {
         if (!accessToken) {
@@ -1576,7 +1564,7 @@ export default function ManageTrailsPage() {
                 <div>
                     <h2 className="text-2xl font-semibold text-gray-800">Manage Trails</h2>
                     <p className="text-sm text-gray-500">
-                        Organisation: {orgId}
+                        Organisation: {activeOrganisation?.name ?? orgId ?? "N/A"}
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">

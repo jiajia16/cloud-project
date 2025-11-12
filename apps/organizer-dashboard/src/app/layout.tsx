@@ -6,11 +6,24 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AuthProvider, useAuth } from "../context/AuthContext";
+import {
+  OrganisationProvider,
+  useOrganisation,
+} from "../context/OrganisationContext";
+
+const PUBLIC_PATHS = new Set(["/login", "/organisations"]);
 
 function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, user, logout } = useAuth();
+  const {
+    organisationId,
+    selectOrganisation,
+    organisations,
+    loading: organisationsLoading,
+    activeOrganisation,
+  } = useOrganisation();
   const [mounted, setMounted] = useState(false);
   const logoutRef = useRef(logout);
   logoutRef.current = logout;
@@ -23,7 +36,8 @@ function Shell({ children }: { children: ReactNode }) {
     if (!mounted) {
       return;
     }
-    if (!isAuthenticated && pathname !== "/login") {
+    const isPublicPath = PUBLIC_PATHS.has(pathname ?? "");
+    if (!isAuthenticated && !isPublicPath) {
       router.replace("/login");
     } else if (isAuthenticated && pathname === "/login") {
       router.replace("/");
@@ -34,6 +48,7 @@ function Shell({ children }: { children: ReactNode }) {
     () => [
       { label: "Overview", href: "/" },
       { label: "Manage Trails", href: "/manageTrails" },
+      { label: "Organisations", href: "/organisations" },
       { label: "Participants", href: "/participants" },
       { label: "Points", href: "/points" },
       { label: "Rewards", href: "/rewards" },
@@ -44,6 +59,7 @@ function Shell({ children }: { children: ReactNode }) {
   );
 
   const showNavigation = mounted && isAuthenticated && pathname !== "/login";
+  const isPublicPath = PUBLIC_PATHS.has(pathname ?? "");
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -66,6 +82,30 @@ function Shell({ children }: { children: ReactNode }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
+                  {organisations.length ? (
+                    <label className="flex flex-col text-xs text-gray-500 uppercase">
+                      Organisation
+                      <select
+                        className="mt-1 min-w-[180px] rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-200"
+                        value={organisationId ?? ""}
+                        onChange={(event) =>
+                          selectOrganisation(event.target.value || null)
+                        }
+                      >
+                        {organisations.map((org) => (
+                          <option key={org.id} value={org.id}>
+                            {org.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    <div className="text-xs text-gray-500">
+                      {organisationsLoading
+                        ? "Loading organisations…"
+                        : "No organisation linked."}
+                    </div>
+                  )}
                   <Button
                     variant="outline"
                     className="bg-white text-teal-600 hover:bg-teal-50"
@@ -85,7 +125,9 @@ function Shell({ children }: { children: ReactNode }) {
                   <div>
                     <h2 className="text-2xl font-bold">Admin Dashboard</h2>
                     <p className="text-white/90">
-                      Manage activities and monitor community engagement
+                      {activeOrganisation
+                        ? `Focused on ${activeOrganisation.name}. Manage activities and monitor community engagement.`
+                        : "Manage activities and monitor community engagement"}
                     </p>
                   </div>
                   <Button
@@ -123,7 +165,7 @@ function Shell({ children }: { children: ReactNode }) {
         )}
 
         <main className="max-w-screen-lg mx-auto px-4 pb-10" suppressHydrationWarning>
-          {pathname === "/login" ? children : isAuthenticated ? children : null}
+          {isPublicPath || isAuthenticated ? children : null}
         </main>
       </body>
     </html>
@@ -133,7 +175,9 @@ function Shell({ children }: { children: ReactNode }) {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      <Shell>{children}</Shell>
+      <OrganisationProvider>
+        <Shell>{children}</Shell>
+      </OrganisationProvider>
     </AuthProvider>
   );
 }

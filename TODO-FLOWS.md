@@ -47,14 +47,14 @@ Additional clarifications of the open items above:
 
 11th Nov flow run test
 SIGNUP & SIGNIN
-- [] on org - lack of organiser signup/ organisation creation/ 
+- [X] on org - lack of organiser signup/ organisation creation/ 
 - [X] on org - login as admin and password (from create admin) all working
 - [X] on senior - sign up & sign in & log out all working
 - [X] on senior - join the organisations by selecting from drop-down list working (as automatically joined)
 - [X] on org - organiser created a new trail -> on senior yes, only join the org then can see the activities
 JOIN A TRAIL
-- [] on org - organiser generated qr to join the trail -> can generate but on senior - the senior scan -> "invalid or expired token"
-- [] on org - organiser generated invite link to join the trail -> can generate but on senior - the senior paste the link -> "not found/ invalid"
+- [X] on org - organiser generated qr to join the trail -> can generate but on senior - the senior scan -> "invalid or expired token"
+- [X] on org - organiser generated invite link to join the trail -> can generate but on senior - the senior paste the link -> "not found/ invalid"
 - [X] on senior - can join under the list of trails via button "JOIN TRAIL"
 APPROVE/ CONFIRM THE PARTICIPANTS & CHECKIN
 - [X] after apply for the trail, it shows the requests on the org -> organiser can approve/ confirm/ cancel
@@ -77,4 +77,4 @@ INSIGHTS
 REPORTS
 - [X] not yet implemented the export but it is ok, not the main things (for now can be just for UI)
 
-- [] on the org, the expired date and time for qr code not accurate
+- [X] on the org, the expired date and time for qr code not accurate

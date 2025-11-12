@@ -11,11 +11,8 @@ import { Button, Card, SectionTitle } from "@silvertrails/ui";
 import { Loader2, RefreshCw, ShieldAlert } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
-import {
-  listOrganisations,
-  listParticipants,
-  type UserSummary,
-} from "../../services/auth";
+import { useOrganisation } from "../../context/OrganisationContext";
+import { listParticipants, type UserSummary } from "../../services/auth";
 import {
   listOrgBalances,
   listOrgLedger,
@@ -36,13 +33,13 @@ export default function PointsPage() {
   const { tokens, user } = useAuth();
   const accessToken = tokens?.access_token ?? null;
   const organiserOrgIds = user?.org_ids ?? [];
-
-  const [organisations, setOrganisations] = useState<
-    { id: string; name: string }[]
-  >([]);
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
-    organiserOrgIds[0] ?? null
-  );
+  const {
+    organisationId: selectedOrgId,
+    selectOrganisation,
+    organisations: organisationOptions,
+    loading: organisationLoading,
+    refreshOrganisations,
+  } = useOrganisation();
 
   const [participants, setParticipants] = useState<UserSummary[]>([]);
   const [balances, setBalances] = useState<OrgBalance[]>([]);
@@ -59,24 +56,16 @@ export default function PointsPage() {
   const [formSubmitting, setFormSubmitting] = useState(false);
 
   useEffect(() => {
-    if (organiserOrgIds.length > 0 && !selectedOrgId) {
-      setSelectedOrgId(organiserOrgIds[0]);
-    }
-  }, [organiserOrgIds, selectedOrgId]);
-
-  useEffect(() => {
     if (!accessToken) {
       return;
     }
     const controller = new AbortController();
-    listOrganisations({ accessToken, signal: controller.signal })
-      .then((orgs) => setOrganisations(orgs))
-      .catch(() => {});
     listParticipants({ accessToken, signal: controller.signal })
       .then((list) => setParticipants(list))
       .catch(() => {});
+    void refreshOrganisations();
     return () => controller.abort();
-  }, [accessToken]);
+  }, [accessToken, refreshOrganisations]);
 
   const fetchPoints = useCallback(async () => {
     if (!accessToken || !selectedOrgId) {
@@ -196,7 +185,8 @@ export default function PointsPage() {
   }
 
   const selectedOrgName =
-    (selectedOrgId && organisations.find((org) => org.id === selectedOrgId)?.name) ||
+    (selectedOrgId &&
+      organisationOptions.find((org) => org.id === selectedOrgId)?.name) ||
     (selectedOrgId ? selectedOrgId.slice(0, 8).toUpperCase() : "N/A");
 
   const totalPoints = balances.reduce((sum, entry) => sum + entry.balance, 0);
@@ -217,13 +207,13 @@ export default function PointsPage() {
             Organisation
             <select
               value={selectedOrgId ?? ""}
-              onChange={(event) => setSelectedOrgId(event.target.value || null)}
+              onChange={(event) => selectOrganisation(event.target.value || null)}
               className="mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
+              disabled={organisationLoading || organisationOptions.length === 0}
             >
-              {organiserOrgIds.map((orgId) => (
-                <option key={orgId} value={orgId}>
-                  {organisations.find((org) => org.id === orgId)?.name ??
-                    orgId.slice(0, 8).toUpperCase()}
+              {organisationOptions.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
                 </option>
               ))}
             </select>
@@ -255,7 +245,7 @@ export default function PointsPage() {
       ) : null}
 
       <Card className="p-5 space-y-4">
-        <SectionTitle title={`Manual adjustment (${selectedOrgName})`} />
+  <SectionTitle title={`Manual adjustment (${selectedOrgName})`} subtitle="" />
         <form
           onSubmit={handleAdjust}
           className="grid grid-cols-1 md:grid-cols-4 gap-4"
@@ -317,7 +307,7 @@ export default function PointsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="p-4 space-y-3">
-          <SectionTitle title="Balances (latest 10)" />
+          <SectionTitle title="Balances (latest 10)" subtitle="" />
           <p className="text-sm text-gray-600">
             Total points tracked:{" "}
             <span className="font-semibold">{totalPoints.toLocaleString()}</span>
@@ -358,7 +348,7 @@ export default function PointsPage() {
           )}
         </Card>
         <Card className="p-4 space-y-3">
-          <SectionTitle title="Recent ledger entries" />
+          <SectionTitle title="Recent ledger entries" subtitle="" />
           {loading && ledger.length === 0 ? (
             <p className="text-sm text-gray-600">
               <Loader2 className="w-4 h-4 animate-spin inline-block mr-2" />

@@ -32,6 +32,7 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 };
 
 const STORAGE_KEY = "organizer-auth-state";
@@ -147,6 +148,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [hydrateProfile, logout, state.tokens]);
 
+  const refreshProfile = useCallback(async () => {
+    const accessToken = state.tokens?.access_token;
+    if (!accessToken) {
+      return;
+    }
+    try {
+      await hydrateProfile(accessToken);
+    } catch (error) {
+      console.warn("Failed to refresh organiser profile", error);
+    }
+  }, [hydrateProfile, state.tokens?.access_token]);
+
   const login = useCallback(
     async (username: string, password: string) => {
       const response = await organiserLogin({ username, password });
@@ -214,8 +227,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!state.user && !!state.tokens?.access_token,
       login,
       logout,
+      refreshProfile,
     }),
-    [login, logout, state]
+    [login, logout, refreshProfile, state]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

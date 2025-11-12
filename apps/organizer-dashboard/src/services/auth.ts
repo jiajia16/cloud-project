@@ -255,6 +255,26 @@ export async function assignParticipantToOrganisation({
   }
 }
 
+export async function createOrganisation({
+  accessToken,
+  name,
+}: {
+  accessToken: string;
+  name: string;
+}): Promise<OrganisationSummary> {
+  const response = await fetch(`${AUTH_BASE_URL}/orgs`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ name }),
+    credentials: "include",
+  });
+
+  return handleResponse<OrganisationSummary>(response);
+}
+
 export async function getOrganisationStats({
   accessToken,
   orgId,

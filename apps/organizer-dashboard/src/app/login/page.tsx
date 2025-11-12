@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@silvertrails/ui";
 import { useAuth } from "../../context/AuthContext";
@@ -90,6 +91,14 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
+
+        <p className="text-center text-xs text-gray-500">
+          Need an organiser account? {" "}
+          <Link href="/organisations" className="text-teal-600 font-semibold">
+            Create one here
+          </Link>
+          .
+        </p>
       </Card>
     </div>
   );

@@ -17,6 +17,7 @@ import {
   listOrganisations,
   listParticipants,
 } from "../services/auth";
+import { useOrganisation } from "../context/OrganisationContext";
 
 type ActivitySummary = {
   id: string;
@@ -56,6 +57,7 @@ function describeLocation(value: string | null) {
 export default function DashboardPage() {
   const { tokens } = useAuth();
   const accessToken = tokens?.access_token ?? null;
+  const { organisationId: selectedOrgId, activeOrganisation } = useOrganisation();
 
   const [stats, setStats] = useState(EMPTY_STATS);
   const [activities, setActivities] = useState<ActivitySummary[]>([]);
@@ -73,13 +75,20 @@ export default function DashboardPage() {
       setError(null);
       try {
         const [trails, organisations, participants] = await Promise.all([
-          listTrails({ accessToken, signal }),
+          listTrails({ accessToken, orgId: selectedOrgId ?? undefined, signal }),
           listOrganisations({ accessToken, signal }),
           listParticipants({ accessToken, signal }),
         ]);
 
         const orgNameById = new Map<string, string>();
         organisations.forEach((org) => orgNameById.set(org.id, org.name));
+
+        const relevantParticipants = selectedOrgId
+          ? participants.filter((participant) =>
+              Array.isArray(participant.org_ids) &&
+              participant.org_ids.includes(selectedOrgId)
+            )
+          : participants;
 
         const summaries = [...trails]
           .sort(
@@ -99,8 +108,8 @@ export default function DashboardPage() {
           }));
         setActivities(summaries);
 
-        const totalParticipants = participants.length;
-        const activeParticipants = participants.filter(
+        const totalParticipants = relevantParticipants.length;
+        const activeParticipants = relevantParticipants.filter(
           (participant) =>
             Array.isArray(participant.org_ids) &&
             participant.org_ids.length > 0
@@ -136,7 +145,7 @@ export default function DashboardPage() {
         }
       }
     },
-    [accessToken]
+    [accessToken, selectedOrgId]
   );
 
   useEffect(() => {
@@ -180,6 +189,11 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <section>
+        {selectedOrgId ? (
+          <p className="mb-3 text-sm text-gray-600">
+            Showing metrics for {activeOrganisation?.name ?? selectedOrgId.slice(0, 8).toUpperCase()}.
+          </p>
+        ) : null}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {statCards.map((stat) => (
             <Card

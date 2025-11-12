@@ -30,6 +30,7 @@
 - Organiser dashboard trail services now understand paginated rosters and optional status on create (updated `apps/organizer-dashboard/src/services/trails.ts`).
 - Manage Trails client adds paginated roster loading, richer metrics, invite copy polish, and reuses the new pagination helpers (`apps/organizer-dashboard/src/app/manageTrails/page.tsx`).
 - Organizer dashboard now covers the remaining Trails & Activities interactions: trail detail hydration, attendee lookups, invite preview/acceptance, and organiser participation summaries (updated `apps/organizer-dashboard/src/services/trails.ts` and `apps/organizer-dashboard/src/app/manageTrails/page.tsx`).
+- Added an organiser setup page that provisions accounts via a protected API route and lets signed-in staff create new organisations (`apps/organizer-dashboard/src/app/organisations/page.tsx`, `src/app/api/organiser-signup/route.ts`, `src/services/auth.ts`).
 - Organiser dashboard now has client wrappers for leaderboard and attendance APIs, enabling system/org rankings and roster views (`apps/organizer-dashboard/src/services/leaderboard.ts`).
 - Insights page now surfaces live system and organisation leaderboards plus per-trail attendance using the new services (`apps/organizer-dashboard/src/app/insights/page.tsx`).
 - Senior PWA shows an organisation assignment banner for unassigned users and treats cancelled registrations as rejoinable (updated `apps/senior-pwa/src/pages/Home.jsx`, `MyTrails.jsx`, and `TrailDetail.jsx`).
