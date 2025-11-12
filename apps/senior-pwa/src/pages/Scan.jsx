@@ -11,10 +11,12 @@ import {
   ArrowLeft,
   CheckCircle,
   Clock,
+  Gift,
   History,
   Loader2,
   QrCode,
   RefreshCcw,
+  Sparkles,
   Upload,
 } from "lucide-react";
 import { Button } from "@silvertrails/ui";
@@ -373,6 +375,71 @@ export default function Scan() {
   const recentHistory = useMemo(() => history.slice(0, 5), [history]);
   const hasHistory = recentHistory.length > 0;
   const showSuccess = Boolean(lastCheckin || lastInvite);
+  const awardedPoints = useMemo(() => {
+    if (!lastCheckin) {
+      return null;
+    }
+    const raw =
+      lastCheckin.points_awarded ??
+      (typeof lastCheckin.points_awarded === "number"
+        ? lastCheckin.points_awarded
+        : null);
+    if (raw === null || raw === undefined) {
+      return null;
+    }
+    const numeric = Number(raw);
+    return Number.isFinite(numeric) ? numeric : null;
+  }, [lastCheckin]);
+  const hasPointsInfo = typeof awardedPoints === "number";
+  const positivePoints = hasPointsInfo && Number(awardedPoints) > 0;
+  const zeroPoints = hasPointsInfo && Number(awardedPoints) === 0;
+  const isRepeatCheckin = Boolean(lastCheckin && lastCheckin.new_activity === false);
+  const activityStepLabel = useMemo(() => {
+    if (!lastCheckin?.activity_order) {
+      return null;
+    }
+    const order = Number(lastCheckin.activity_order);
+    return Number.isFinite(order) ? `Activity step ${order}` : null;
+  }, [lastCheckin]);
+  const checkinStatusDescription = useMemo(() => {
+    if (!lastCheckin) {
+      return "";
+    }
+    if (isRepeatCheckin || zeroPoints) {
+      return "Looks like you've already completed this activity. We've saved your attendance, but no extra points were added.";
+    }
+    if (positivePoints) {
+      return "Great job! These points are now in your balance. Check Rewards to see what you can redeem.";
+    }
+    if (hasPointsInfo) {
+      return "We recorded your activity. Points will appear once the organiser confirms attendance.";
+    }
+    return "Your activity has been recorded. Points will appear once the organiser confirms your attendance.";
+  }, [hasPointsInfo, isRepeatCheckin, lastCheckin, positivePoints, zeroPoints]);
+  const pointsHeadline = useMemo(() => {
+    if (!hasPointsInfo || awardedPoints === null) {
+      return "";
+    }
+    if (positivePoints) {
+      return `+${Number(awardedPoints)}`;
+    }
+    if (zeroPoints || isRepeatCheckin) {
+      return "Already counted";
+    }
+    return String(awardedPoints);
+  }, [awardedPoints, hasPointsInfo, isRepeatCheckin, positivePoints, zeroPoints]);
+  const pointsSubtext = useMemo(() => {
+    if (!hasPointsInfo || awardedPoints === null) {
+      return "";
+    }
+    if (positivePoints) {
+      return "Added instantly to your balance.";
+    }
+    if (zeroPoints || isRepeatCheckin) {
+      return "No extra points were added this time.";
+    }
+    return "We'll reflect any points once the organiser confirms attendance.";
+  }, [awardedPoints, hasPointsInfo, isRepeatCheckin, positivePoints, zeroPoints]);
 
   if (pendingOrgAssignment) {
     return (
@@ -494,20 +561,76 @@ export default function Scan() {
           </div>
         ) : (
           <div className="w-full max-w-md text-center flex flex-col items-center gap-6">
-            <div className="flex flex-col items-center gap-4 bg-white/90 backdrop-blur-sm rounded-3xl px-6 py-10 shadow-xl">
+            <div className="flex flex-col items-center gap-5 bg-white/90 backdrop-blur-sm rounded-3xl px-6 py-10 shadow-xl w-full">
               <div className="bg-green-100 rounded-full p-5 shadow">
                 <CheckCircle className="w-16 h-16 text-green-500" />
               </div>
-              <div>
+              <div className="space-y-1">
                 <h2 className="text-2xl font-bold text-gray-800">
                   Check-in successful!
                 </h2>
-                <p className="text-gray-600 mt-2">
+                <p className="text-sm text-gray-600">
                   {formatDateTime(lastCheckin.checked_at)}
                 </p>
               </div>
+
+              {hasPointsInfo ? (
+                <div
+                  className={`w-full rounded-2xl px-4 py-4 transition-all ${
+                    positivePoints
+                      ? "bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 text-white shadow-lg"
+                      : "bg-gray-100 border border-gray-200 text-gray-700"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`rounded-full p-2 ${
+                        positivePoints ? "bg-white/20" : "bg-white"
+                      }`}
+                    >
+                      <Sparkles
+                        className={`w-5 h-5 ${
+                          positivePoints ? "text-white" : "text-teal-600"
+                        }`}
+                      />
+                    </div>
+                    <div className="text-left flex-1">
+                      <p
+                        className={`text-xs font-semibold uppercase tracking-wide ${
+                          positivePoints ? "text-white/80" : "text-gray-500"
+                        }`}
+                      >
+                        Points awarded
+                      </p>
+                      <p
+                        className={`text-3xl font-bold leading-tight ${
+                          positivePoints ? "text-white" : "text-gray-800"
+                        }`}
+                      >
+                        {pointsHeadline}
+                      </p>
+                      {pointsSubtext ? (
+                        <p
+                          className={`mt-1 text-sm ${
+                            positivePoints ? "text-white/90" : "text-gray-600"
+                          }`}
+                        >
+                          {pointsSubtext}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="text-sm text-gray-600 bg-gray-100 rounded-2xl px-4 py-3 text-left w-full">
-                <p>
+                {activityStepLabel ? (
+                  <p>
+                    <span className="font-semibold text-gray-700">Activity:</span>{" "}
+                    {activityStepLabel}
+                  </p>
+                ) : null}
+                <p className={activityStepLabel ? "mt-1" : undefined}>
                   <span className="font-semibold text-gray-700">Trail:</span>{" "}
                   {shortenId(lastCheckin.trail_id)}
                 </p>
@@ -522,10 +645,10 @@ export default function Scan() {
                   {lastCheckin.method}
                 </p>
               </div>
-              <p className="text-sm text-gray-500">
-                Your activity has been recorded. Points will appear once the
-                organiser confirms your attendance.
-              </p>
+
+              {checkinStatusDescription ? (
+                <p className="text-sm text-gray-500">{checkinStatusDescription}</p>
+              ) : null}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 w-full">
@@ -542,14 +665,25 @@ export default function Scan() {
                 Scan Another
               </Button>
             </div>
+
+            {positivePoints ? (
+              <Button
+                onClick={() => navigate("/rewards")}
+                className="w-full bg-amber-100 border border-amber-200 text-amber-900 hover:bg-amber-200 text-base py-3 flex items-center justify-center gap-2"
+              >
+                <Gift className="w-4 h-4" />
+                See what you can redeem
+              </Button>
+            ) : null}
+
             <Button
               onClick={() => {
                 resetScanner();
                 fetchHistory().catch(() => { });
               }}
-              className="w-full bg-white/80 border border-teal-200 text-teal-700 hover:bg-white text-base py-3"
+              className="w-full bg-white/80 border border-teal-200 text-teal-700 hover:bg-white text-base py-3 flex items-center justify-center gap-2"
             >
-              <History className="w-4 h-4 mr-2" />
+              <History className="w-4 h-4" />
               View recent check-ins
             </Button>
           </div>

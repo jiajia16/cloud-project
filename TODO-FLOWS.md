@@ -43,7 +43,7 @@ Additional clarifications of the open items above:
 - [x] Build the organiser reporting section that was planned for the dashboard (exportables / KPIs) — organiser Insights now pulls live member counts, attendance trends, trail stats, and points activity.
 - [x] Persist per-trail activity definitions from Manage Trails into backend storage so organiser-created activities survive refreshes.
 - [x] Ensure leaderboards refresh when multiple seniors join the same organisation and support multi-activity trails awarding points after each activity's QR scan (backend now trusts activity metadata from QR tokens; still need senior app auto-selection + end-to-end verification).
-- [] Extend QR token lifespans to match the full trail duration so organisers don't reissue codes mid-event.
+- [X] Extend QR token lifespans to match the full trail duration so organisers don't reissue codes mid-event.
 
 11th Nov flow run test
 SIGNUP & SIGNIN
@@ -62,8 +62,8 @@ APPROVE/ CONFIRM THE PARTICIPANTS & CHECKIN
 - [X] on senior -can checkin using QR code/ paste the link 
 ACTIVITIES INTO THE TRAILS
 - [X] on org - organiser can add/ remove an activity with the points rewarded and via scan QR code
-- [] on org - organiser generate qr code for an activity not yet STATIC/ event duration
-- [] on senior - senior scan and get the points, might need to improve the "Scan successfully confirm UI page" abit
+- [?] on org - organiser generate qr code for an activity not yet STATIC/ event duration
+- [X] on senior - senior scan and get the points, might need to improve the "Scan successfully confirm UI page" abit
 SCORE & POINTS AND LEADERBOARD
 - [X] on senior - the leaderboard seems ranking based on activities done, not the current rewards points
 - [X] on senior - the leaderboard can view org/ system wide
@@ -72,6 +72,7 @@ REWARDS & REDEEMPTION
 - [X] on senior - show correctly the rewarded points
 - [X] on org - can create voucher with points costed, code
 - [X] on senior - senior can redeemed and view the code successfully
+- [] on senior - enrich rewards points history to show the trail and activity titles instead of generic "Activity check-in" entries
 INSIGHTS 
 - [X] can see all the real-time data very nice 
 REPORTS
