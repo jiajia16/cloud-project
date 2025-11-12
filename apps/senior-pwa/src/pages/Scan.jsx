@@ -25,7 +25,32 @@ import {
   listMyCheckins,
   scanCheckin,
 } from "../services/checkins.js";
+import { acceptInvite, previewInvite } from "../services/trails.js";
 import { decodeQrFromFile } from "../utils/qrDecode.js";
+
+function decodeJwtPayload(token) {
+  if (!token || typeof token !== "string") {
+    return null;
+  }
+  const parts = token.split(".");
+  if (parts.length < 2) {
+    return null;
+  }
+  try {
+    let segment = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const pad = segment.length % 4;
+    if (pad) {
+      segment += "=".repeat(4 - pad);
+    }
+    const decoded = atob(segment);
+    return JSON.parse(decoded);
+  } catch (err) {
+    if (import.meta.env?.DEV) {
+      console.debug("[scan] unable to decode token payload", err);
+    }
+    return null;
+  }
+}
 
 function formatDateTime(value) {
   if (!value) return "Date unavailable";
@@ -37,6 +62,15 @@ function formatDateTime(value) {
   } catch {
     return value;
   }
+}
+
+function formatDateRange(start, end) {
+  const startText = start ? formatDateTime(start) : null;
+  const endText = end ? formatDateTime(end) : null;
+  if (startText && endText) {
+    return `${startText} → ${endText}`;
+  }
+  return startText || endText || "";
 }
 
 function shortenId(id) {
@@ -53,6 +87,7 @@ export default function Scan() {
 
   const [manualToken, setManualToken] = useState("");
   const [lastCheckin, setLastCheckin] = useState(null);
+  const [lastInvite, setLastInvite] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -63,6 +98,14 @@ export default function Scan() {
   const [canLiveScan, setCanLiveScan] = useState(false);
   const fileInputRef = useRef(null);
   const pendingTokenRef = useRef("");
+
+  const isInviteToken = useCallback((token) => {
+    const payload = decodeJwtPayload(token);
+    return Boolean(
+      payload &&
+      (payload.scope === "register" || payload.aud === "trail-invite")
+    );
+  }, []);
 
   // Probe camera capability once (live scan only when supported)
   useEffect(() => {
@@ -111,11 +154,98 @@ export default function Scan() {
     return () => controller.abort();
   }, [accessToken, fetchHistory, pendingOrgAssignment]);
 
-  const submitToken = useCallback(
+  const processInviteToken = useCallback(
     async (token) => {
       if (!token) {
         setError("We could not read the QR code. Please try again.");
         return;
+      }
+      const cleanedToken = typeof token === "string" ? token.trim() : "";
+      if (!cleanedToken) {
+        setError("We could not read the QR code. Please try again.");
+        return;
+      }
+      if (!accessToken) {
+        setError("Please sign in again to use invite codes.");
+        return;
+      }
+      if (loading) return;
+
+      pendingTokenRef.current = cleanedToken;
+      setLoading(true);
+      setError("");
+      setLastCheckin(null);
+      try {
+        const preview = await previewInvite({
+          accessToken,
+          token: cleanedToken,
+        });
+        let alreadyRegistered = false;
+        try {
+          await acceptInvite({ accessToken, token: cleanedToken });
+        } catch (inviteErr) {
+          const message = inviteErr?.message ?? "";
+          if (/already registered/i.test(message)) {
+            alreadyRegistered = true;
+          } else {
+            throw inviteErr;
+          }
+        }
+
+        const trailCandidate =
+          preview && typeof preview === "object" && preview.trail
+            ? preview.trail
+            : typeof preview === "object"
+              ? preview
+              : null;
+        const trailTitle =
+          trailCandidate?.title ??
+          (typeof preview?.title === "string" ? preview.title : "");
+        const organisationName =
+          trailCandidate?.organisation?.name ??
+          preview?.organisation?.name ??
+          trailCandidate?.organisation_name ??
+          "";
+        const startsAt =
+          trailCandidate?.starts_at ?? preview?.starts_at ?? undefined;
+        const endsAt =
+          trailCandidate?.ends_at ?? preview?.ends_at ?? undefined;
+
+        setLastInvite({
+          status: alreadyRegistered ? "already" : "success",
+          trailTitle,
+          organisationName,
+          startsAt,
+          endsAt,
+        });
+        setManualToken("");
+        pendingTokenRef.current = "";
+      } catch (err) {
+        pendingTokenRef.current = "";
+        setError(
+          err?.message ??
+          "We couldn't process this invite. Please try again or ask your organiser for a new code."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [accessToken, loading]
+  );
+
+  const submitToken = useCallback(
+    async (token, metadata = null) => {
+      if (!token) {
+        setError("We could not read the QR code. Please try again.");
+        return;
+      }
+      const cleanedToken = typeof token === "string" ? token.trim() : "";
+      if (!cleanedToken) {
+        setError("We could not read the QR code. Please try again.");
+        return;
+      }
+      if (isInviteToken(cleanedToken)) {
+        return processInviteToken(cleanedToken);
       }
       if (!accessToken) {
         setError("Please sign in again to scan QR codes.");
@@ -127,11 +257,18 @@ export default function Scan() {
       }
       if (loading) return;
 
-      pendingTokenRef.current = token;
+      pendingTokenRef.current = cleanedToken;
       setLoading(true);
       setError("");
+      setLastInvite(null);
       try {
-        const record = await scanCheckin({ accessToken, token });
+        const record = await scanCheckin({
+          accessToken,
+          token: cleanedToken,
+          activityId: metadata?.activityId,
+          activityOrder: metadata?.activityOrder,
+          points: metadata?.points,
+        });
         setLastCheckin(record);
         setManualToken("");
         pendingTokenRef.current = "";
@@ -146,7 +283,14 @@ export default function Scan() {
         setLoading(false);
       }
     },
-    [accessToken, fetchHistory, loading, pendingOrgAssignment]
+    [
+      accessToken,
+      fetchHistory,
+      isInviteToken,
+      loading,
+      pendingOrgAssignment,
+      processInviteToken,
+    ]
   );
 
   const onUpload = useCallback(
@@ -157,9 +301,14 @@ export default function Scan() {
       setLoading(true);
       try {
         const decodedText = await decodeQrFromFile(file);
-        const token = extractTokenFromScan(decodedText);
+        const parsed = extractTokenFromScan(decodedText, { withMetadata: true });
+        if (parsed?.kind === "invite") {
+          await processInviteToken(parsed.token);
+          return;
+        }
+        const token = parsed && typeof parsed === "object" ? parsed.token : parsed;
         if (!token) throw new Error("No QR token found in the image.");
-        await submitToken(token);
+        await submitToken(token, parsed?.metadata ?? null);
       } catch (err) {
         setError(
           err?.message || "Unable to read this QR image. Try another image."
@@ -169,30 +318,44 @@ export default function Scan() {
         e.target.value = ""; // allow re-select of the same file
       }
     },
-    [submitToken]
+    [processInviteToken, submitToken]
   );
 
   const handleScanResult = useCallback(
     (rawValue) => {
-      if (loading || lastCheckin) return;
-      const token = extractTokenFromScan(rawValue);
+      if (loading || lastCheckin || lastInvite) return;
+      const parsed = extractTokenFromScan(rawValue, { withMetadata: true });
+      const token = parsed && typeof parsed === "object" ? parsed.token : parsed;
       if (!token) {
         setError("We could not read the QR code. Please try again.");
         return;
       }
       if (pendingTokenRef.current && pendingTokenRef.current === token) return;
-      submitToken(token);
+      if (parsed?.kind === "invite" || isInviteToken(token)) {
+        processInviteToken(token);
+        return;
+      }
+  submitToken(token, parsed?.metadata ?? null);
     },
-    [loading, lastCheckin, submitToken]
+    [isInviteToken, lastCheckin, lastInvite, loading, processInviteToken, submitToken]
   );
 
   const handleManualSubmit = useCallback(
-    (event) => {
+    async (event) => {
       event.preventDefault();
-      const token = extractTokenFromScan(manualToken);
-      submitToken(token);
+      const parsed = extractTokenFromScan(manualToken, { withMetadata: true });
+      const token = parsed && typeof parsed === "object" ? parsed.token : parsed;
+      if (!token) {
+        setError("Enter a valid invite or check-in code first.");
+        return;
+      }
+      if (parsed?.kind === "invite" || isInviteToken(token)) {
+        await processInviteToken(token);
+        return;
+      }
+      await submitToken(token, parsed?.metadata ?? null);
     },
-    [manualToken, submitToken]
+    [isInviteToken, manualToken, processInviteToken, submitToken]
   );
 
   const handleBackHome = useCallback(() => {
@@ -201,12 +364,15 @@ export default function Scan() {
 
   const resetScanner = useCallback(() => {
     setLastCheckin(null);
+    setLastInvite(null);
+    setManualToken("");
     setError("");
     pendingTokenRef.current = "";
   }, []);
 
   const recentHistory = useMemo(() => history.slice(0, 5), [history]);
   const hasHistory = recentHistory.length > 0;
+  const showSuccess = Boolean(lastCheckin || lastInvite);
 
   if (pendingOrgAssignment) {
     return (
@@ -253,10 +419,10 @@ export default function Scan() {
 
   return (
     <div
-      className={`min-h-[100svh] flex flex-col items-center px-4 py-8 transition-colors duration-500 ${lastCheckin ? "bg-gradient-to-b from-white to-cyan-50" : "bg-teal-800"
+      className={`min-h-[100svh] flex flex-col items-center px-4 py-8 transition-colors duration-500 ${showSuccess ? "bg-gradient-to-b from-white to-cyan-50" : "bg-teal-800"
         }`}
     >
-      {!lastCheckin && (
+      {!showSuccess && (
         <button
           type="button"
           onClick={handleBackHome}
@@ -267,67 +433,127 @@ export default function Scan() {
         </button>
       )}
 
-      {lastCheckin ? (
-        <div className="w-full max-w-md text-center flex flex-col items-center gap-6">
-          <div className="flex flex-col items-center gap-4 bg-white/90 backdrop-blur-sm rounded-3xl px-6 py-10 shadow-xl">
-            <div className="bg-green-100 rounded-full p-5 shadow">
-              <CheckCircle className="w-16 h-16 text-green-500" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">
-                Check-in successful!
-              </h2>
-              <p className="text-gray-600 mt-2">
-                {formatDateTime(lastCheckin.checked_at)}
+      {showSuccess ? (
+        lastInvite ? (
+          <div className="w-full max-w-md text-center flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-4 bg-white/90 backdrop-blur-sm rounded-3xl px-6 py-10 shadow-xl">
+              <div className="bg-teal-100 rounded-full p-5 shadow">
+                <CheckCircle className="w-16 h-16 text-teal-500" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">
+                  {lastInvite.status === "already"
+                    ? "You're already registered"
+                    : "Invite accepted!"}
+                </h2>
+                {lastInvite.trailTitle ? (
+                  <p className="text-gray-600 mt-2">{lastInvite.trailTitle}</p>
+                ) : null}
+                {lastInvite.organisationName ? (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {lastInvite.organisationName}
+                  </p>
+                ) : null}
+              </div>
+              {formatDateRange(lastInvite.startsAt, lastInvite.endsAt) ? (
+                <div className="text-sm text-gray-600 bg-gray-100 rounded-2xl px-4 py-3 text-left w-full">
+                  <p className="font-semibold text-gray-700">Schedule</p>
+                  <p className="mt-1">
+                    {formatDateRange(lastInvite.startsAt, lastInvite.endsAt)}
+                  </p>
+                </div>
+              ) : null}
+              <p className="text-sm text-gray-500">
+                {lastInvite.status === "already"
+                  ? "You're all set. Check My Trails to see your upcoming activities."
+                  : "You're registered! We'll remind you in My Trails before the activity starts."}
               </p>
             </div>
-            <div className="text-sm text-gray-600 bg-gray-100 rounded-2xl px-4 py-3 text-left w-full">
-              <p>
-                <span className="font-semibold text-gray-700">Trail:</span>{" "}
-                {shortenId(lastCheckin.trail_id)}
-              </p>
-              <p className="mt-1">
-                <span className="font-semibold text-gray-700">
-                  Organisation:
-                </span>{" "}
-                {shortenId(lastCheckin.org_id)}
-              </p>
-              <p className="mt-1">
-                <span className="font-semibold text-gray-700">Method:</span>{" "}
-                {lastCheckin.method}
-              </p>
-            </div>
-            <p className="text-sm text-gray-500">
-              Your activity has been recorded. Points will appear once the
-              organiser confirms your attendance.
-            </p>
-          </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 w-full">
-            <Button
-              onClick={handleBackHome}
-              className="flex-1 bg-teal-400 hover:bg-cyan-400 text-white text-base py-3"
-            >
-              Back to Home
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3 w-full">
+              <Button
+                onClick={handleBackHome}
+                className="flex-1 bg-teal-400 hover:bg-cyan-400 text-white text-base py-3"
+              >
+                Back to Home
+              </Button>
+              <Button
+                onClick={() => navigate("/mytrails")}
+                className="flex-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-base py-3"
+              >
+                View My Trails
+              </Button>
+            </div>
             <Button
               onClick={resetScanner}
-              className="flex-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-base py-3"
+              className="w-full bg-white/80 border border-teal-200 text-teal-700 hover:bg-white text-base py-3"
             >
-              Scan Another
+              <QrCode className="w-4 h-4 mr-2" />
+              Scan another code
             </Button>
           </div>
-          <Button
-            onClick={() => {
-              resetScanner();
-              fetchHistory().catch(() => { });
-            }}
-            className="w-full bg-white/80 border border-teal-200 text-teal-700 hover:bg-white text-base py-3"
-          >
-            <History className="w-4 h-4 mr-2" />
-            View recent check-ins
-          </Button>
-        </div>
+        ) : (
+          <div className="w-full max-w-md text-center flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-4 bg-white/90 backdrop-blur-sm rounded-3xl px-6 py-10 shadow-xl">
+              <div className="bg-green-100 rounded-full p-5 shadow">
+                <CheckCircle className="w-16 h-16 text-green-500" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Check-in successful!
+                </h2>
+                <p className="text-gray-600 mt-2">
+                  {formatDateTime(lastCheckin.checked_at)}
+                </p>
+              </div>
+              <div className="text-sm text-gray-600 bg-gray-100 rounded-2xl px-4 py-3 text-left w-full">
+                <p>
+                  <span className="font-semibold text-gray-700">Trail:</span>{" "}
+                  {shortenId(lastCheckin.trail_id)}
+                </p>
+                <p className="mt-1">
+                  <span className="font-semibold text-gray-700">
+                    Organisation:
+                  </span>{" "}
+                  {shortenId(lastCheckin.org_id)}
+                </p>
+                <p className="mt-1">
+                  <span className="font-semibold text-gray-700">Method:</span>{" "}
+                  {lastCheckin.method}
+                </p>
+              </div>
+              <p className="text-sm text-gray-500">
+                Your activity has been recorded. Points will appear once the
+                organiser confirms your attendance.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 w-full">
+              <Button
+                onClick={handleBackHome}
+                className="flex-1 bg-teal-400 hover:bg-cyan-400 text-white text-base py-3"
+              >
+                Back to Home
+              </Button>
+              <Button
+                onClick={resetScanner}
+                className="flex-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-base py-3"
+              >
+                Scan Another
+              </Button>
+            </div>
+            <Button
+              onClick={() => {
+                resetScanner();
+                fetchHistory().catch(() => { });
+              }}
+              className="w-full bg-white/80 border border-teal-200 text-teal-700 hover:bg-white text-base py-3"
+            >
+              <History className="w-4 h-4 mr-2" />
+              View recent check-ins
+            </Button>
+          </div>
+        )
       ) : (
         <div className="w-full max-w-md flex flex-col gap-6 items-center">
           {/* Scan / Upload card */}
@@ -383,7 +609,7 @@ export default function Scan() {
             {loading && (
               <div className="mt-4 flex items-center justify-center gap-2 text-teal-700 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Processing your check-in...
+                Processing your code...
               </div>
             )}
             {error && (

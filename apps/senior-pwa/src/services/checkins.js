@@ -92,12 +92,13 @@ export function extractTokenFromScan(rawValue, options = {}) {
         return hasValue ? meta : null;
     };
 
-    const formatResult = (token, metadata = null) => {
+    const formatResult = (token, metadata = null, kind = "checkin") => {
         if (withMetadata) {
             return {
                 token,
                 metadata,
                 source: trimmed,
+                kind,
             };
         }
         return token;
@@ -109,11 +110,11 @@ export function extractTokenFromScan(rawValue, options = {}) {
             const tokenParam = url.searchParams.get("token");
             const meta = parseActivityMetadata(url.searchParams);
             if (tokenParam) {
-                return formatResult(tokenParam, meta);
+                return formatResult(tokenParam, meta, "checkin");
             }
             const inviteSegment = extractInviteFromPath(url.pathname);
             if (inviteSegment) {
-                return formatResult(inviteSegment, meta);
+                return formatResult(inviteSegment, meta, "invite");
             }
         } catch {
             return null;
@@ -137,7 +138,7 @@ export function extractTokenFromScan(rawValue, options = {}) {
             const params = new URLSearchParams(search);
             const tokenParam = params.get("token");
             if (tokenParam) {
-                return formatResult(tokenParam, parseActivityMetadata(params));
+                return formatResult(tokenParam, parseActivityMetadata(params), "checkin");
             }
         } catch {
             // ignore parsing issues and continue with regex fallback
@@ -153,15 +154,15 @@ export function extractTokenFromScan(rawValue, options = {}) {
                 return queryMatch[1];
             }
         })();
-        return formatResult(rawToken);
+        return formatResult(rawToken, null, "checkin");
     }
 
     const inviteSegment = extractInviteFromPath(trimmed);
     if (inviteSegment) {
-        return formatResult(inviteSegment);
+        return formatResult(inviteSegment, null, "invite");
     }
 
-    return formatResult(trimmed);
+    return formatResult(trimmed, null, "checkin");
 }
 
 export function normalizeToken(rawToken) {

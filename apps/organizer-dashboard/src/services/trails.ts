@@ -50,6 +50,37 @@ export type InviteToken = {
   org_id: string;
 };
 
+type InviteTokenResponse = {
+  invite_token: string;
+  expires_at: number | string;
+  url: string;
+  trail_id: string;
+  org_id: string;
+};
+
+function normaliseInviteToken(payload: InviteTokenResponse): InviteToken {
+  let expiresIso: string;
+  if (typeof payload.expires_at === "number") {
+    expiresIso = new Date(payload.expires_at * 1000).toISOString();
+  } else if (payload.expires_at && /^[0-9]+$/.test(payload.expires_at)) {
+    const seconds = Number(payload.expires_at);
+    expiresIso = new Date(seconds * 1000).toISOString();
+  } else {
+    const parsed = new Date(payload.expires_at);
+    expiresIso = Number.isNaN(parsed.getTime())
+      ? String(payload.expires_at)
+      : parsed.toISOString();
+  }
+
+  return {
+    invite_token: payload.invite_token,
+    expires_at: expiresIso,
+    url: payload.url,
+    trail_id: payload.trail_id,
+    org_id: payload.org_id,
+  };
+}
+
 export type InvitePreview = {
   trail: Trail;
 };
@@ -478,7 +509,8 @@ export async function createTrailInvite({
     }
   );
 
-  return handleResponse<InviteToken>(response);
+  const payload = await handleResponse<InviteTokenResponse>(response);
+  return normaliseInviteToken(payload);
 }
 
 export async function getRegistrationStatus({
