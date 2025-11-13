@@ -121,6 +121,14 @@ const TRAIL_STATUS_BADGE: Record<TrailStatus, string> = {
     cancelled: "bg-rose-100 text-rose-700",
 };
 
+function describeLocation(value: string | null | undefined) {
+    if (!value) {
+        return "Location TBC";
+    }
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : "Location TBC";
+}
+
 const REGISTRATION_STATUS_LABEL: Record<Registration["status"], string> = {
     pending: "Pending",
     approved: "Approved",
