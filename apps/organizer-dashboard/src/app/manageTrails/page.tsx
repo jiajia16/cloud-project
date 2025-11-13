@@ -441,6 +441,7 @@ export default function ManageTrailsPage() {
     const [showEditForm, setShowEditForm] = useState(false);
     const [formSubmitting, setFormSubmitting] = useState(false);
     const [selectedTrailDetail, setSelectedTrailDetail] = useState<Trail | null>(null);
+    const [trailDetailReloadToken, setTrailDetailReloadToken] = useState(0);
     const [trailDetailLoading, setTrailDetailLoading] = useState(false);
     const [trailDetailError, setTrailDetailError] = useState<string | null>(null);
     const [lookupUserId, setLookupUserId] = useState("");
@@ -1001,18 +1002,27 @@ export default function ManageTrailsPage() {
                 return aTime - bTime;
             });
             setTrails(sorted);
+
+            let nextSelectedId: string | null = null;
             setSelectedTrailId((current) => {
-                if (current && sorted.some((trail) => trail.id === current)) {
-                    return current;
-                }
-                return sorted[0]?.id ?? null;
+                const stillExists =
+                    current && sorted.some((trail) => trail.id === current);
+                nextSelectedId = stillExists ? current : sorted[0]?.id ?? null;
+                return nextSelectedId;
             });
+
+            if (
+                nextSelectedId &&
+                nextSelectedId === selectedTrailId
+            ) {
+                setTrailDetailReloadToken((token) => token + 1);
+            }
         } catch (err) {
             setTrailError(getErrorMessage(err));
         } finally {
             setLoadingTrails(false);
         }
-    }, [accessToken, orgId]);
+    }, [accessToken, orgId, selectedTrailId]);
 
     const refreshMyData = useCallback(async () => {
         if (!accessToken) {
@@ -1077,7 +1087,7 @@ export default function ManageTrailsPage() {
         return () => {
             cancelled = true;
         };
-    }, [accessToken, selectedTrailId]);
+    }, [accessToken, selectedTrailId, trailDetailReloadToken]);
 
     const refreshRegistrations = useCallback(
         async (trailId: string) => {
