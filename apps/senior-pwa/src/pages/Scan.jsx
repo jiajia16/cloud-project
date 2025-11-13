@@ -22,6 +22,7 @@ import {
 import { Button } from "@silvertrails/ui";
 import QRScanner from "../components/QRScanner.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { useLocale } from "../contexts/LocaleContext.jsx";
 import {
   extractTokenFromScan,
   listMyCheckins,
@@ -29,6 +30,7 @@ import {
 } from "../services/checkins.js";
 import { acceptInvite, previewInvite } from "../services/trails.js";
 import { decodeQrFromFile } from "../utils/qrDecode.js";
+import { t, formatDateTime } from "../i18n/index.js";
 
 function decodeJwtPayload(token) {
   if (!token || typeof token !== "string") {
@@ -54,23 +56,11 @@ function decodeJwtPayload(token) {
   }
 }
 
-function formatDateTime(value) {
-  if (!value) return "Date unavailable";
-  try {
-    return new Intl.DateTimeFormat("en-SG", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
-}
-
 function formatDateRange(start, end) {
   const startText = start ? formatDateTime(start) : null;
   const endText = end ? formatDateTime(end) : null;
   if (startText && endText) {
-    return `${startText} → ${endText}`;
+    return t("common.labels.dateRange", { start: startText, end: endText });
   }
   return startText || endText || "";
 }
@@ -83,6 +73,7 @@ function shortenId(id) {
 export default function Scan() {
   const navigate = useNavigate();
   const { tokens, user } = useAuth();
+  useLocale();
   const accessToken = tokens?.access_token;
   const orgIds = user?.org_ids ?? [];
   const pendingOrgAssignment = !orgIds || orgIds.length === 0;
@@ -133,9 +124,7 @@ export default function Scan() {
         }
       } catch (err) {
         if (!(signal?.aborted)) {
-          setHistoryError(
-            err?.message ?? "Unable to load your recent check-ins."
-          );
+          setHistoryError(err?.message ?? t("scan.errors.history"));
         }
       } finally {
         if (!(signal?.aborted)) {
@@ -159,16 +148,16 @@ export default function Scan() {
   const processInviteToken = useCallback(
     async (token) => {
       if (!token) {
-        setError("We could not read the QR code. Please try again.");
+        setError(t("scan.errors.readFailed"));
         return;
       }
       const cleanedToken = typeof token === "string" ? token.trim() : "";
       if (!cleanedToken) {
-        setError("We could not read the QR code. Please try again.");
+        setError(t("scan.errors.readFailed"));
         return;
       }
       if (!accessToken) {
-        setError("Please sign in again to use invite codes.");
+        setError(t("scan.errors.requireSignInInvite"));
         return;
       }
       if (loading) return;
@@ -225,8 +214,7 @@ export default function Scan() {
       } catch (err) {
         pendingTokenRef.current = "";
         setError(
-          err?.message ??
-          "We couldn't process this invite. Please try again or ask your organiser for a new code."
+          err?.message ?? t("scan.errors.inviteProcess")
         );
       } finally {
         setLoading(false);
@@ -238,23 +226,23 @@ export default function Scan() {
   const submitToken = useCallback(
     async (token, metadata = null) => {
       if (!token) {
-        setError("We could not read the QR code. Please try again.");
+        setError(t("scan.errors.readFailed"));
         return;
       }
       const cleanedToken = typeof token === "string" ? token.trim() : "";
       if (!cleanedToken) {
-        setError("We could not read the QR code. Please try again.");
+        setError(t("scan.errors.readFailed"));
         return;
       }
       if (isInviteToken(cleanedToken)) {
         return processInviteToken(cleanedToken);
       }
       if (!accessToken) {
-        setError("Please sign in again to scan QR codes.");
+        setError(t("scan.errors.requireSignInScan"));
         return;
       }
       if (pendingOrgAssignment) {
-        setError("Join an organisation before scanning QR codes.");
+        setError(t("scan.errors.requireOrg"));
         return;
       }
       if (loading) return;
@@ -278,8 +266,7 @@ export default function Scan() {
       } catch (err) {
         pendingTokenRef.current = "";
         setError(
-          err?.message ??
-          "Unable to complete the check-in. Please try another QR code."
+          err?.message ?? t("scan.errors.checkinFailed")
         );
       } finally {
         setLoading(false);
@@ -309,11 +296,11 @@ export default function Scan() {
           return;
         }
         const token = parsed && typeof parsed === "object" ? parsed.token : parsed;
-        if (!token) throw new Error("No QR token found in the image.");
+        if (!token) throw new Error(t("scan.errors.noTokenImage"));
         await submitToken(token, parsed?.metadata ?? null);
       } catch (err) {
         setError(
-          err?.message || "Unable to read this QR image. Try another image."
+          err?.message || t("scan.errors.imageDecode")
         );
       } finally {
         setLoading(false);
@@ -329,7 +316,7 @@ export default function Scan() {
       const parsed = extractTokenFromScan(rawValue, { withMetadata: true });
       const token = parsed && typeof parsed === "object" ? parsed.token : parsed;
       if (!token) {
-        setError("We could not read the QR code. Please try again.");
+        setError(t("scan.errors.readFailed"));
         return;
       }
       if (pendingTokenRef.current && pendingTokenRef.current === token) return;
@@ -348,7 +335,7 @@ export default function Scan() {
       const parsed = extractTokenFromScan(manualToken, { withMetadata: true });
       const token = parsed && typeof parsed === "object" ? parsed.token : parsed;
       if (!token) {
-        setError("Enter a valid invite or check-in code first.");
+        setError(t("scan.errors.manualInvalid"));
         return;
       }
       if (parsed?.kind === "invite" || isInviteToken(token)) {
@@ -399,22 +386,24 @@ export default function Scan() {
       return null;
     }
     const order = Number(lastCheckin.activity_order);
-    return Number.isFinite(order) ? `Activity step ${order}` : null;
+    return Number.isFinite(order)
+      ? t("scan.details.activityStep", { order: Number(order) })
+      : null;
   }, [lastCheckin]);
   const checkinStatusDescription = useMemo(() => {
     if (!lastCheckin) {
       return "";
     }
     if (isRepeatCheckin || zeroPoints) {
-      return "Looks like you've already completed this activity. We've saved your attendance, but no extra points were added.";
+      return t("scan.status.repeat");
     }
     if (positivePoints) {
-      return "Great job! These points are now in your balance. Check Rewards to see what you can redeem.";
+      return t("scan.status.pointsAwarded");
     }
     if (hasPointsInfo) {
-      return "We recorded your activity. Points will appear once the organiser confirms attendance.";
+      return t("scan.status.pending");
     }
-    return "Your activity has been recorded. Points will appear once the organiser confirms your attendance.";
+    return t("scan.status.recorded");
   }, [hasPointsInfo, isRepeatCheckin, lastCheckin, positivePoints, zeroPoints]);
   const pointsHeadline = useMemo(() => {
     if (!hasPointsInfo || awardedPoints === null) {
@@ -424,7 +413,7 @@ export default function Scan() {
       return `+${Number(awardedPoints)}`;
     }
     if (zeroPoints || isRepeatCheckin) {
-      return "Already counted";
+      return t("scan.points.already");
     }
     return String(awardedPoints);
   }, [awardedPoints, hasPointsInfo, isRepeatCheckin, positivePoints, zeroPoints]);
@@ -433,12 +422,12 @@ export default function Scan() {
       return "";
     }
     if (positivePoints) {
-      return "Added instantly to your balance.";
+      return t("scan.points.instant");
     }
     if (zeroPoints || isRepeatCheckin) {
-      return "No extra points were added this time.";
+      return t("scan.points.none");
     }
-    return "We'll reflect any points once the organiser confirms attendance.";
+    return t("scan.points.pending");
   }, [awardedPoints, hasPointsInfo, isRepeatCheckin, positivePoints, zeroPoints]);
 
   if (pendingOrgAssignment) {
@@ -450,33 +439,31 @@ export default function Scan() {
           className="self-start mb-6 flex items-center gap-2 text-white/90 hover:text-white transition"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">Back</span>
+          <span className="text-sm font-medium">{t("common.actions.back")}</span>
         </button>
         <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 space-y-4 text-gray-800">
           <div className="flex items-center gap-3 text-amber-700">
             <AlertCircle className="w-6 h-6" />
             <h1 className="text-xl font-semibold">
-              You need an organisation first
+              {t("scan.pendingOrg.title")}
             </h1>
           </div>
           <p className="text-sm leading-6 text-gray-600">
-            We can only record check-ins after your organiser adds you to an
-            organisation. Enter the invite link they shared with you or ask them
-            to send a new one.
+            {t("scan.pendingOrg.description")}
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
               className="flex-1 bg-teal-500 hover:bg-teal-600 text-white"
               onClick={() => navigate("/join")}
             >
-              Enter invite code
+              {t("scan.actions.enterInvite")}
             </Button>
             <Button
               variant="outline"
               className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50"
               onClick={() => navigate("/home")}
             >
-              Back to Home
+              {t("scan.actions.backHome")}
             </Button>
           </div>
         </div>
@@ -496,7 +483,7 @@ export default function Scan() {
           className="self-start mb-6 flex items-center gap-2 text-white/90 hover:text-white transition"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">Back</span>
+          <span className="text-sm font-medium">{t("common.actions.back")}</span>
         </button>
       )}
 
@@ -510,8 +497,8 @@ export default function Scan() {
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">
                   {lastInvite.status === "already"
-                    ? "You're already registered"
-                    : "Invite accepted!"}
+                    ? t("scan.invite.alreadyTitle")
+                    : t("scan.invite.acceptedTitle")}
                 </h2>
                 {lastInvite.trailTitle ? (
                   <p className="text-gray-600 mt-2">{lastInvite.trailTitle}</p>
@@ -524,7 +511,7 @@ export default function Scan() {
               </div>
               {formatDateRange(lastInvite.startsAt, lastInvite.endsAt) ? (
                 <div className="text-sm text-gray-600 bg-gray-100 rounded-2xl px-4 py-3 text-left w-full">
-                  <p className="font-semibold text-gray-700">Schedule</p>
+                  <p className="font-semibold text-gray-700">{t("scan.invite.schedule")}</p>
                   <p className="mt-1">
                     {formatDateRange(lastInvite.startsAt, lastInvite.endsAt)}
                   </p>
@@ -532,8 +519,8 @@ export default function Scan() {
               ) : null}
               <p className="text-sm text-gray-500">
                 {lastInvite.status === "already"
-                  ? "You're all set. Check My Trails to see your upcoming activities."
-                  : "You're registered! We'll remind you in My Trails before the activity starts."}
+                  ? t("scan.invite.alreadyDescription")
+                  : t("scan.invite.successDescription")}
               </p>
             </div>
 
@@ -542,13 +529,13 @@ export default function Scan() {
                 onClick={handleBackHome}
                 className="flex-1 bg-teal-400 hover:bg-cyan-400 text-white text-base py-3"
               >
-                Back to Home
+                {t("scan.actions.backHome")}
               </Button>
               <Button
                 onClick={() => navigate("/mytrails")}
                 className="flex-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-base py-3"
               >
-                View My Trails
+                {t("scan.actions.viewTrails")}
               </Button>
             </div>
             <Button
@@ -556,7 +543,7 @@ export default function Scan() {
               className="w-full bg-white/80 border border-teal-200 text-teal-700 hover:bg-white text-base py-3"
             >
               <QrCode className="w-4 h-4 mr-2" />
-              Scan another code
+              {t("scan.actions.scanAgain")}
             </Button>
           </div>
         ) : (
@@ -567,7 +554,7 @@ export default function Scan() {
               </div>
               <div className="space-y-1">
                 <h2 className="text-2xl font-bold text-gray-800">
-                  Check-in successful!
+                  {t("scan.success.title")}
                 </h2>
                 <p className="text-sm text-gray-600">
                   {formatDateTime(lastCheckin.checked_at)}
@@ -600,7 +587,7 @@ export default function Scan() {
                           positivePoints ? "text-white/80" : "text-gray-500"
                         }`}
                       >
-                        Points awarded
+                        {t("scan.points.label")}
                       </p>
                       <p
                         className={`text-3xl font-bold leading-tight ${
@@ -626,22 +613,22 @@ export default function Scan() {
               <div className="text-sm text-gray-600 bg-gray-100 rounded-2xl px-4 py-3 text-left w-full">
                 {activityStepLabel ? (
                   <p>
-                    <span className="font-semibold text-gray-700">Activity:</span>{" "}
+                    <span className="font-semibold text-gray-700">{t("scan.details.activityLabel")}</span>{" "}
                     {activityStepLabel}
                   </p>
                 ) : null}
                 <p className={activityStepLabel ? "mt-1" : undefined}>
-                  <span className="font-semibold text-gray-700">Trail:</span>{" "}
+                  <span className="font-semibold text-gray-700">{t("scan.details.trailLabel")}</span>{" "}
                   {shortenId(lastCheckin.trail_id)}
                 </p>
                 <p className="mt-1">
                   <span className="font-semibold text-gray-700">
-                    Organisation:
+                    {t("scan.details.orgLabel")}
                   </span>{" "}
                   {shortenId(lastCheckin.org_id)}
                 </p>
                 <p className="mt-1">
-                  <span className="font-semibold text-gray-700">Method:</span>{" "}
+                  <span className="font-semibold text-gray-700">{t("scan.details.methodLabel")}</span>{" "}
                   {lastCheckin.method}
                 </p>
               </div>
@@ -656,13 +643,13 @@ export default function Scan() {
                 onClick={handleBackHome}
                 className="flex-1 bg-teal-400 hover:bg-cyan-400 text-white text-base py-3"
               >
-                Back to Home
+                {t("scan.actions.backHome")}
               </Button>
               <Button
                 onClick={resetScanner}
                 className="flex-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-base py-3"
               >
-                Scan Another
+                {t("scan.actions.scanAgainShort")}
               </Button>
             </div>
 
@@ -672,7 +659,7 @@ export default function Scan() {
                 className="w-full bg-amber-100 border border-amber-200 text-amber-900 hover:bg-amber-200 text-base py-3 flex items-center justify-center gap-2"
               >
                 <Gift className="w-4 h-4" />
-                See what you can redeem
+                {t("scan.actions.redeem")}
               </Button>
             ) : null}
 
@@ -684,7 +671,7 @@ export default function Scan() {
               className="w-full bg-white/80 border border-teal-200 text-teal-700 hover:bg-white text-base py-3 flex items-center justify-center gap-2"
             >
               <History className="w-4 h-4" />
-              View recent check-ins
+              {t("scan.actions.history")}
             </Button>
           </div>
         )
@@ -694,11 +681,10 @@ export default function Scan() {
           <div className="w-full bg-white/95 backdrop-blur-sm rounded-3xl px-6 py-6 shadow-xl">
             <div className="flex items-center gap-3 text-teal-700">
               <QrCode className="w-6 h-6" />
-              <h2 className="text-xl font-semibold">Scan QR to mark activity</h2>
+              <h2 className="text-xl font-semibold">{t("scan.scanner.title")}</h2>
             </div>
             <p className="text-sm text-gray-600 mt-2">
-              Hold your device steady and position the QR code inside the frame.
-              We will record your check-in automatically.
+              {t("scan.scanner.description")}
             </p>
 
             {canLiveScan ? (
@@ -712,10 +698,10 @@ export default function Scan() {
                 <div className="mx-auto max-w-md flex flex-col items-center text-center space-y-2">
                   <Upload className="w-6 h-6 text-teal-600 mb-1" />
                   <h3 className="font-semibold text-gray-800 text-sm">
-                    Upload a QR code image
+                    {t("scan.scanner.uploadTitle")}
                   </h3>
                   <p className="text-xs text-gray-600">
-                    PNG or JPG works best. We’ll read the code and submit automatically.
+                    {t("scan.scanner.uploadDescription")}
                   </p>
                   <div className="pt-3">
                     <Button
@@ -725,7 +711,7 @@ export default function Scan() {
                       className="px-4 py-2 text-sm"
                       disabled={loading}
                     >
-                      Choose Image
+                      {t("scan.actions.chooseImage")}
                     </Button>
                   </div>
                   <input
@@ -743,7 +729,7 @@ export default function Scan() {
             {loading && (
               <div className="mt-4 flex items-center justify-center gap-2 text-teal-700 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Processing your code...
+                {t("scan.scanner.processing")}
               </div>
             )}
             {error && (
@@ -760,10 +746,10 @@ export default function Scan() {
             className="w-full bg-white/95 backdrop-blur-sm rounded-3xl px-6 py-6 shadow-xl"
           >
             <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              Enter code manually
+              {t("scan.scanner.manualTitle")}
             </h3>
             <p className="text-sm text-gray-600 mt-1">
-              Paste the token or QR link if your camera is unavailable.
+              {t("scan.scanner.manualDescription")}
             </p>
             <div className="mt-4 flex flex-col sm:flex-row gap-3">
               <input
@@ -771,7 +757,7 @@ export default function Scan() {
                 value={manualToken}
                 onChange={(event) => setManualToken(event.target.value)}
                 className="flex-1 rounded-xl border border-gray-300 px-3 py-3 text-sm focus:border-teal-400 focus:ring-2 focus:ring-teal-100 outline-none"
-                placeholder="e.g. /checkin/scan?token=..."
+                placeholder={t("scan.scanner.manualPlaceholder")}
                 disabled={loading}
               />
               <Button
@@ -779,7 +765,7 @@ export default function Scan() {
                 className="bg-teal-400 hover:bg-cyan-400 text-white px-6 py-3 rounded-xl"
                 disabled={loading}
               >
-                Submit code
+                {t("scan.actions.submitCode")}
               </Button>
             </div>
           </form>
@@ -789,7 +775,7 @@ export default function Scan() {
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
                 <Clock className="w-5 h-5 text-teal-600" />
-                Recent check-ins
+                {t("scan.history.title")}
               </h3>
               <button
                 type="button"
@@ -799,7 +785,7 @@ export default function Scan() {
                 <RefreshCcw
                   className={`w-4 h-4 ${historyLoading ? "animate-spin" : ""}`}
                 />
-                Refresh
+                {t("common.actions.refresh")}
               </button>
             </div>
 
@@ -811,8 +797,7 @@ export default function Scan() {
 
             {!historyError && !hasHistory && !historyLoading && (
               <p className="mt-3 text-sm text-gray-600">
-                You have not checked in to any trails yet. Scan a QR code to get
-                started!
+                {t("scan.history.empty")}
               </p>
             )}
 
@@ -825,7 +810,7 @@ export default function Scan() {
                   >
                     <div className="flex justify-between gap-2">
                       <span className="font-medium text-gray-800">
-                        Trail {shortenId(item.trail_id)}
+                        {t("scan.history.trailLabel", { id: shortenId(item.trail_id) })}
                       </span>
                       <span className="text-xs text-gray-500 uppercase">
                         {item.method}

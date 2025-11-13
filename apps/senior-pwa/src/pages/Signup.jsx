@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { signupAttendee } from "../services/auth.js";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { setPendingInviteToken, autoJoinPendingInvite } from "../utils/pendingInvite.js";
+import { t } from "../i18n/index.js";
 
 export default function Signup() {
     const [name, setName] = useState("");
@@ -34,16 +35,16 @@ export default function Signup() {
 
     const validate = () => {
         if (!name.trim()) {
-            return "Please enter your full name.";
+            return t("Please enter your full name.");
         }
         if (!nric.trim()) {
-            return "Please enter your NRIC.";
+            return t("Please enter your NRIC.");
         }
         if (!/^\d{8}$/.test(passcode.trim())) {
-            return "Passcode must be 8 digits (DDMMYYYY).";
+            return t("Passcode must be 8 digits (DDMMYYYY).");
         }
         if (passcode.trim() !== confirmPasscode.trim()) {
-            return "Passcodes do not match.";
+            return t("Passcodes do not match.");
         }
         return "";
     };
@@ -74,7 +75,7 @@ export default function Signup() {
             setCreatedName(response?.user?.name ?? name.trim());
             setShowSuccess(true);
         } catch (err) {
-            setError(err.message || "Unable to sign up. Please try again.");
+            setError(err.message || t("Unable to sign up. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -88,20 +89,22 @@ export default function Signup() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-cyan-100 to-teal-100">
                 <div className="bg-white shadow-xl rounded-3xl p-8 w-[95%] max-w-md text-center space-y-4">
-                    <h1 className="text-3xl font-bold text-teal-600">Welcome aboard!</h1>
+                    <h1 className="text-3xl font-bold text-teal-600">{t("Welcome aboard!")}</h1>
                     <p className="text-gray-700">
                         {createdName
-                            ? `${createdName}, your SilverTrails account was created successfully.`
-                            : "Your SilverTrails account was created successfully."}
+                            ? t("{name}, your SilverTrails account was created successfully.", {
+                                  name: createdName,
+                              })
+                            : t("Your SilverTrails account was created successfully.")}
                     </p>
                     <p className="text-sm text-gray-500">
-                        You can now explore your trails, scan QR codes for activities, and collect rewards.
+                        {t("You can now explore your trails, scan QR codes for activities, and collect rewards.")}
                     </p>
                     <button
                         onClick={handleContinue}
                         className="w-full bg-gradient-to-r from-teal-400 to-cyan-400 text-white text-lg py-3 rounded-xl shadow-md hover:brightness-110 transition"
                     >
-                        Go to my dashboard
+                        {t("Go to my dashboard")}
                     </button>
                 </div>
             </div>
@@ -111,39 +114,39 @@ export default function Signup() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-cyan-100 to-teal-100">
             <div className="bg-white shadow-xl rounded-3xl p-8 w-[95%] max-w-md">
-                <h1 className="text-3xl font-bold text-teal-600 text-center mb-6">Create your account</h1>
+                <h1 className="text-3xl font-bold text-teal-600 text-center mb-6">{t("Create your account")}</h1>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <label className="block">
-                        <span className="text-sm font-medium text-gray-700">Full name</span>
+                        <span className="text-sm font-medium text-gray-700">{t("Full name")}</span>
                         <input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. Auntie Mei"
+                            placeholder={t("e.g. Auntie Mei")}
                             className="mt-1 w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-teal-400 outline-none"
                             autoFocus
                         />
                     </label>
 
                     <label className="block">
-                        <span className="text-sm font-medium text-gray-700">NRIC / Identifier</span>
+                        <span className="text-sm font-medium text-gray-700">{t("NRIC / Identifier")}</span>
                         <input
                             type="text"
                             value={nric}
                             onChange={(e) => setNric(e.target.value)}
-                            placeholder="e.g. S1234567A"
+                            placeholder={t("e.g. S1234567A")}
                             className="mt-1 w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-teal-400 outline-none uppercase"
                         />
                     </label>
 
                     <label className="block">
-                        <span className="text-sm font-medium text-gray-700">Passcode (8-digit)</span>
+                        <span className="text-sm font-medium text-gray-700">{t("Passcode (8-digit)")}</span>
                         <input
                             type="password"
                             value={passcode}
                             onChange={(e) => setPasscode(e.target.value)}
-                            placeholder="DDMMYYYY"
+                            placeholder={t("DDMMYYYY")}
                             className="mt-1 w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-teal-400 outline-none"
                             inputMode="numeric"
                             pattern="\d{8}"
@@ -151,12 +154,12 @@ export default function Signup() {
                     </label>
 
                     <label className="block">
-                        <span className="text-sm font-medium text-gray-700">Confirm passcode</span>
+                        <span className="text-sm font-medium text-gray-700">{t("Confirm passcode")}</span>
                         <input
                             type="password"
                             value={confirmPasscode}
                             onChange={(e) => setConfirmPasscode(e.target.value)}
-                            placeholder="Re-enter passcode"
+                            placeholder={t("Re-enter passcode")}
                             className="mt-1 w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-teal-400 outline-none"
                             inputMode="numeric"
                             pattern="\d{8}"
@@ -164,7 +167,7 @@ export default function Signup() {
                     </label>
 
                     <p className="text-xs text-gray-500">
-                        We use an 8-digit passcode (DDMMYYYY) instead of complex passwords so seniors can sign in easily.
+                        {t("We use an 8-digit passcode (DDMMYYYY) instead of complex passwords so seniors can sign in easily.")}
                     </p>
 
                     {error && (
@@ -178,29 +181,30 @@ export default function Signup() {
                         className="w-full bg-gradient-to-r from-teal-400 to-cyan-400 text-white text-lg py-3 rounded-xl shadow-md hover:brightness-110 transition disabled:opacity-60"
                         disabled={loading}
                     >
-                        {loading ? "Creating account..." : "Sign up"}
+                        {loading ? t("Creating account...") : t("Sign up")}
                     </button>
                 </form>
 
                 <p className="mt-5 text-gray-600 text-center">
-                    Already have an account?{" "}
+                    {t("Already have an account?")}{" "}
                     <span
                         className="text-teal-600 font-semibold hover:underline cursor-pointer"
                         onClick={() => navigate("/login")}
                     >
-                        Log in
+                        {t("Log in")}
                     </span>
                 </p>
                 <p className="mt-3 text-sm text-teal-700 text-center">
-                    Received an invite QR?{" "}
+                    {t("Received an invite QR?")}{" "}
                     <span
                         className="font-semibold hover:underline cursor-pointer"
                         onClick={() => navigate("/join")}
                     >
-                        Scan to join first
+                        {t("Scan to join first")}
                     </span>
                 </p>
             </div>
         </div>
     );
 }
+

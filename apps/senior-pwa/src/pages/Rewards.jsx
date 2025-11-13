@@ -9,6 +9,7 @@ import Layout from "../components/Layout.jsx";
 import { Card, Button, SectionTitle } from "@silvertrails/ui";
 import { formatPoints } from "@silvertrails/utils";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { useLocale } from "../contexts/LocaleContext.jsx";
 import {
     getMyBalance,
     getMyLedger,
@@ -21,6 +22,7 @@ import { t, formatDateTime } from "../i18n/index.js";
 
 export default function Rewards() {
     const { tokens, user } = useAuth();
+    useLocale();
     const accessToken = tokens?.access_token;
     const orgIds = user?.org_ids ?? [];
     const pendingOrgAssignment = !orgIds || orgIds.length === 0;
@@ -248,11 +250,11 @@ export default function Rewards() {
                 .join(" ");
         }
 
-        const REASON_LABELS = {
-            activity_checkin: "Activity Check-In",
-            checkin: "Trail Check-In",
-            manual_bonus: "Manual Bonus",
-            voucher_redeem: "Voucher Redemption",
+        const REASON_LABEL_KEYS = {
+            activity_checkin: "rewards.history.reason.activityCheckin",
+            checkin: "rewards.history.reason.trailCheckin",
+            manual_bonus: "rewards.history.reason.manualBonus",
+            voucher_redeem: "rewards.history.reason.voucherRedeem",
         };
 
         function formatReasonBase(reasonKey) {
@@ -260,8 +262,8 @@ export default function Rewards() {
                 return "";
             }
             const normalizedKey = reasonKey.toLowerCase();
-            if (REASON_LABELS[normalizedKey]) {
-                return REASON_LABELS[normalizedKey];
+            if (REASON_LABEL_KEYS[normalizedKey]) {
+                return t(REASON_LABEL_KEYS[normalizedKey]);
             }
             return formatTitleCase(reasonKey.replaceAll("_", " "));
         }
@@ -284,7 +286,7 @@ export default function Rewards() {
                 return null;
             }
             if (normalized === "qr-checkin" || normalized === "qr-checkin-nats") {
-                return "QR";
+                return t("rewards.history.note.qr");
             }
             return formatTitleCase(note.replaceAll("-", " "));
         }
@@ -332,18 +334,36 @@ export default function Rewards() {
         [redemptions]
     );
 
+    const redeemSuccessName = useMemo(() => {
+        if (!redeemSuccess) {
+            return "";
+        }
+        return redeemSuccess.name || t("rewards.labels.voucherFallback");
+    }, [redeemSuccess]);
+
     const canRedeem = (voucher) =>
         voucher.status === "active" &&
         (voucher.total_quantity === null || voucher.redeemed_count < voucher.total_quantity) &&
         (voucher.points_cost === 0 || currentPoints >= voucher.points_cost);
 
+    const formatStatusText = (value) => {
+        if (!value) {
+            return "";
+        }
+        return String(value)
+            .replace(/[_-]+/g, " ")
+            .split(" ")
+            .map((word) => (word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : ""))
+            .join(" ");
+    };
+
     return (
-        <Layout title="Rewards">
+        <Layout title={t("rewards.pageTitle")}>
             <div className="space-y-6">
                 <Card className="p-5 space-y-3">
                     <div className="flex items-center justify-between gap-3">
                         <div>
-                            <p className="text-sm text-gray-600">Available points</p>
+                            <p className="text-sm text-gray-600">{t("rewards.labels.availablePoints")}</p>
                             <p className="text-4xl font-extrabold text-teal-600">
                                 {formatPoints(currentPoints)}
                             </p>
@@ -351,7 +371,7 @@ export default function Rewards() {
                         {orgIds.length > 1 && (
                             <div className="text-right">
                                 <label className="block text-xs text-gray-500 uppercase mb-1">
-                                    Organisation
+                                    {t("rewards.labels.organisation")}
                                 </label>
                                 <select
                                     value={selectedOrgId ?? ""}
@@ -383,42 +403,40 @@ export default function Rewards() {
                     )}
                     {(!orgIds || orgIds.length === 0) && (
                         <p className="text-sm text-gray-600">
-                            You have not been added to an organisation yet. Ask your organiser for an invite or use the Join page to enter a code so you can start collecting rewards.
+                            {t("rewards.labels.pendingAssignment")}
                         </p>
                     )}
                 </Card>
 
                 {pendingOrgAssignment ? (
                     <Card className="p-5 space-y-3 border border-amber-200 bg-amber-50 text-amber-900">
-                        <h3 className="text-lg font-semibold">Complete onboarding to unlock rewards</h3>
-                        <p className="text-sm leading-6">
-                            Rewards, vouchers, and point balances become available once your organiser assigns you to an organisation. Use the invite code they share with you or ask them to add you from the organiser dashboard.
-                        </p>
+                        <h3 className="text-lg font-semibold">{t("rewards.onboarding.title")}</h3>
+                        <p className="text-sm leading-6">{t("rewards.onboarding.description")}</p>
                         <div className="flex flex-col sm:flex-row gap-3">
                             <Button
                                 className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
                                 onClick={() => navigate("/join")}
                             >
-                                Enter invite code
+                                {t("rewards.actions.enterInvite")}
                             </Button>
                             <Button
                                 variant="outline"
                                 className="flex-1 border-amber-200 text-amber-900 hover:bg-white"
                                 onClick={() => navigate("/home")}
                             >
-                                Back to Home
+                                {t("rewards.actions.backHome")}
                             </Button>
                         </div>
                     </Card>
                 ) : selectedOrgId && (
                     <>
-                        <SectionTitle title="Redeemable Rewards" />
+                        <SectionTitle title={t("rewards.sections.redeemable")} />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {loading && vouchers.length === 0 ? (
-                                <Card className="p-4 text-sm text-gray-600">Loading rewards…</Card>
+                                <Card className="p-4 text-sm text-gray-600">{t("rewards.labels.loading")}</Card>
                             ) : sortedVouchers.length === 0 ? (
                                 <Card className="p-4 text-sm text-gray-600">
-                                    No rewards available right now. Check back later!
+                                    {t("rewards.labels.noVouchers")}
                                 </Card>
                             ) : (
                                 sortedVouchers.map((voucher) => {
@@ -426,18 +444,29 @@ export default function Rewards() {
                                         voucher.total_quantity !== null &&
                                         voucher.redeemed_count >= voucher.total_quantity;
                                     const disabled = !canRedeem(voucher) || !!redeemingId;
-                                    const statusLabel = exhausted
-                                        ? "Out of stock"
-                                        : voucher.status === "active"
-                                            ? "Available"
-                                            : voucher.status.replace("_", " ");
+                                    const normalizedStatus = voucher.status
+                                        ? String(voucher.status).toLowerCase()
+                                        : "";
+                                    const statusKey = exhausted
+                                        ? "rewards.vouchers.status.outOfStock"
+                                        : normalizedStatus
+                                            ? `rewards.vouchers.status.${normalizedStatus}`
+                                            : "rewards.vouchers.status.unknown";
+                                    let statusLabel = t(statusKey, {
+                                        status: formatStatusText(voucher.status),
+                                    });
+                                    if (statusLabel === statusKey || !statusLabel) {
+                                        statusLabel = formatStatusText(voucher.status);
+                                    }
                                     return (
                                         <Card key={voucher.id} className="p-4 space-y-3">
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className="font-semibold text-lg">{voucher.name}</p>
                                                     <p className="text-sm text-gray-500">
-                                                        Cost: {formatPoints(voucher.points_cost)}
+                                                        {t("rewards.vouchers.cost", {
+                                                            points: formatPoints(voucher.points_cost),
+                                                        })}
                                                     </p>
                                                 </div>
                                                 <span
@@ -455,11 +484,16 @@ export default function Rewards() {
                                                 onClick={() => handleRedeem(voucher)}
                                                 disabled={disabled}
                                             >
-                                                {redeemingId === voucher.id ? "Redeeming…" : "Redeem"}
+                                                {redeemingId === voucher.id
+                                                    ? t("rewards.labels.redeeming")
+                                                    : t("rewards.labels.redeem")}
                                             </Button>
                                             {voucher.total_quantity !== null && (
                                                 <p className="text-xs text-gray-500 text-right">
-                                                    {voucher.redeemed_count}/{voucher.total_quantity} claimed
+                                                    {t("rewards.labels.qtyClaimed", {
+                                                        count: voucher.redeemed_count,
+                                                        total: voucher.total_quantity,
+                                                    })}
                                                 </p>
                                             )}
                                         </Card>
@@ -475,10 +509,10 @@ export default function Rewards() {
                         {redeemSuccess && (
                             <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
                                 <p className="font-semibold">
-                                    {redeemSuccess.name || "Voucher"} redeemed successfully!
+                                    {t("rewards.success.voucher", { name: redeemSuccessName })}
                                 </p>
                                 <p className="mt-1">
-                                    Present this code to the organiser:
+                                    {t("rewards.messages.presentCode")}
                                     <span className="ml-2 font-mono font-semibold text-lg text-emerald-800">
                                         {redeemSuccess.code?.toUpperCase()}
                                     </span>
@@ -495,80 +529,109 @@ export default function Rewards() {
                             </div>
                         )}
 
-                        <SectionTitle title="Points History" />
+                        <SectionTitle title={t("rewards.sections.pointsHistory")} />
                         <Card>
                             {loading && ledger.length === 0 ? (
-                                <p className="text-sm text-gray-600">Loading your points history…</p>
+                                <p className="text-sm text-gray-600">{t("rewards.labels.loadingHistory")}</p>
                             ) : sortedLedger.length === 0 ? (
-                                <p className="text-sm text-gray-600">No point activity recorded for this organisation yet.</p>
+                                <p className="text-sm text-gray-600">{t("rewards.labels.noHistory")}</p>
                             ) : (
                                 <ul className="divide-y">
-                                    {enrichedLedger.map((entry) => (
-                                        <li key={entry.id} className="py-3 flex justify-between text-sm">
-                                            <div>
-                                                <p className="font-medium text-gray-800">
-                                                    {entry.displayLabel}
-                                                </p>
-                                                <p className="text-xs text-gray-500">
-                                                {entry.displayContext
-                                                    ? `${entry.displayContext} - ${formatDateTime(entry.occurred_at)}`
-                                                    : formatDateTime(entry.occurred_at)}
-                                                </p>
-                                            </div>
-                                            <span
-                                                className={`font-semibold ${
-                                                    entry.delta >= 0 ? "text-teal-600" : "text-rose-500"
-                                                }`}
-                                            >
-                                                {entry.delta >= 0 ? "+" : ""}
-                                                {formatPoints(entry.delta)}
-                                            </span>
-                                        </li>
-                                    ))}
+                                    {enrichedLedger.map((entry) => {
+                                        const occurredAt = formatDateTime(entry.occurred_at, {
+                                            fallbackKey: "common.pending",
+                                        });
+                                        const contextLine = entry.displayContext
+                                            ? t("rewards.messages.contextWithDate", {
+                                                context: entry.displayContext,
+                                                date: occurredAt,
+                                            })
+                                            : occurredAt;
+                                        return (
+                                            <li key={entry.id} className="py-3 flex justify-between text-sm">
+                                                <div>
+                                                    <p className="font-medium text-gray-800">
+                                                        {entry.displayLabel}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">{contextLine}</p>
+                                                </div>
+                                                <span
+                                                    className={`font-semibold ${
+                                                        entry.delta >= 0 ? "text-teal-600" : "text-rose-500"
+                                                    }`}
+                                                >
+                                                    {entry.delta >= 0 ? "+" : ""}
+                                                    {formatPoints(entry.delta)}
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             )}
                         </Card>
 
-                        <SectionTitle title="Redemption History" />
+                        <SectionTitle title={t("rewards.sections.history")} />
                         <Card>
                             {loading && redemptions.length === 0 ? (
-                                <p className="text-sm text-gray-600">Loading your redemptions…</p>
+                                <p className="text-sm text-gray-600">{t("rewards.labels.loadingRedemptions")}</p>
                             ) : sortedRedemptions.length === 0 ? (
-                                <p className="text-sm text-gray-600">You haven’t redeemed any rewards yet.</p>
+                                <p className="text-sm text-gray-600">{t("rewards.labels.noRedemptions")}</p>
                             ) : (
                                 <div className="-mx-5 max-h-64 overflow-y-auto">
                                     <ul className="divide-y">
-                                        {sortedRedemptions.slice(0, 5).map((entry) => (
-                                            <li key={entry.id} className="py-3 px-5">
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="font-medium text-gray-800">
-                                                        {entry.voucher_name
-                                                            ? entry.voucher_name
-                                                            : entry.voucher_code
-                                                                ? `Voucher ${entry.voucher_code.toUpperCase()}`
-                                                                : `Voucher ${entry.voucher_id.slice(0, 8).toUpperCase()}`}
-                                                    </span>
-                                                    <span className="text-xs uppercase text-gray-500">
-                                                        {entry.status.replaceAll("_", " ")}
-                                                    </span>
-                                                </div>
-                                                {entry.points_cost != null && (
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        Points used: {formatPoints(entry.points_cost)}
-                                                    </p>
-                                                )}
-                                                <p className="text-xs text-gray-500 mt-1">
-                                                    {formatDateTime(entry.redeemed_at, {
-                                                        fallbackKey: "common.pending",
-                                                    })}
-                                                </p>
-                                                {entry.voucher_code && (
-                                                    <p className="text-xs text-gray-600 mt-1 font-mono">
-                                                        Code: {entry.voucher_code.toUpperCase()}
-                                                    </p>
-                                                )}
-                                            </li>
-                                        ))}
+                                        {sortedRedemptions.slice(0, 5).map((entry) => {
+                                            const voucherLabel = entry.voucher_name
+                                                ? entry.voucher_name
+                                                : entry.voucher_code
+                                                    ? t("rewards.redemptions.voucherFallback", {
+                                                        code: entry.voucher_code.toUpperCase(),
+                                                    })
+                                                    : t("rewards.redemptions.voucherIdFallback", {
+                                                        id: (entry.voucher_id || "").slice(0, 8).toUpperCase(),
+                                                    });
+                                            const normalizedStatus = entry.status
+                                                ? String(entry.status).toLowerCase()
+                                                : "";
+                                            const statusKey = normalizedStatus
+                                                ? `rewards.redemptions.status.${normalizedStatus}`
+                                                : "rewards.redemptions.status.generic";
+                                            let statusLabel = t(statusKey, {
+                                                status: formatStatusText(entry.status),
+                                            });
+                                            if (statusLabel === statusKey || !statusLabel) {
+                                                statusLabel = formatStatusText(entry.status);
+                                            }
+                                            const redeemedAt = formatDateTime(entry.redeemed_at, {
+                                                fallbackKey: "common.pending",
+                                            });
+                                            return (
+                                                <li key={entry.id} className="py-3 px-5">
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="font-medium text-gray-800">
+                                                            {voucherLabel}
+                                                        </span>
+                                                        <span className="text-xs uppercase text-gray-500">
+                                                            {statusLabel}
+                                                        </span>
+                                                    </div>
+                                                    {entry.points_cost != null && (
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            {t("rewards.redemptions.pointsUsed", {
+                                                                points: formatPoints(entry.points_cost),
+                                                            })}
+                                                        </p>
+                                                    )}
+                                                    <p className="text-xs text-gray-500 mt-1">{redeemedAt}</p>
+                                                    {entry.voucher_code && (
+                                                        <p className="text-xs text-gray-600 mt-1 font-mono">
+                                                            {t("rewards.redemptions.code", {
+                                                                code: entry.voucher_code.toUpperCase(),
+                                                            })}
+                                                        </p>
+                                                    )}
+                                                </li>
+                                            );
+                                        })}
                                     </ul>
                                 </div>
                             )}

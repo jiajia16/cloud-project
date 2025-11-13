@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 import { loginUser } from "../services/auth.js";
 import { setPendingInviteToken, autoJoinPendingInvite } from "../utils/pendingInvite.js";
+import { t } from "../i18n/index.js";
 
 export default function Login() {
     const [nric, setNric] = useState("");
@@ -26,7 +27,7 @@ export default function Login() {
         e.preventDefault();
         setError("");
         if (!nric.trim() || !passcode.trim()) {
-            setError("Please enter your NRIC and 8-digit passcode.");
+            setError(t("Please enter your NRIC and 8-digit passcode."));
             return;
         }
         setLoading(true);
@@ -42,7 +43,7 @@ export default function Login() {
             }
             navigate("/home", { replace: true });
         } catch (err) {
-            setError(err.message || "Unable to log in. Please try again.");
+            setError(err.message || t("Unable to log in. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -51,27 +52,27 @@ export default function Login() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-cyan-100 to-teal-100">
             <div className="bg-white shadow-xl rounded-3xl p-8 w-[90%] max-w-sm text-center">
-                <h1 className="text-3xl font-bold text-teal-600 mb-6">Welcome to SilverTrails</h1>
+                <h1 className="text-3xl font-bold text-teal-600 mb-6">{t("Welcome to SilverTrails")}</h1>
 
                 <form onSubmit={handleSubmit} className="space-y-4 text-left">
                     <label className="block">
-                        <span className="text-sm font-medium text-gray-700">NRIC / Identifier</span>
+                        <span className="text-sm font-medium text-gray-700">{t("NRIC / Identifier")}</span>
                         <input
                             type="text"
                             value={nric}
                             onChange={(e) => setNric(e.target.value)}
-                            placeholder="e.g. S1234567A"
+                            placeholder={t("e.g. S1234567A")}
                             className="mt-1 w-full border border-gray-300 rounded-xl p-3 text-center focus:ring-2 focus:ring-teal-400 outline-none"
                             autoFocus
                         />
                     </label>
                     <label className="block">
-                        <span className="text-sm font-medium text-gray-700">Passcode (8-digit)</span>
+                        <span className="text-sm font-medium text-gray-700">{t("Passcode (8-digit)")}</span>
                         <input
                             type="password"
                             value={passcode}
                             onChange={(e) => setPasscode(e.target.value)}
-                            placeholder="DDMMYYYY"
+                            placeholder={t("DDMMYYYY")}
                             className="mt-1 w-full border border-gray-300 rounded-xl p-3 text-center focus:ring-2 focus:ring-teal-400 outline-none"
                             inputMode="numeric"
                             pattern="\d{8}"
@@ -89,29 +90,30 @@ export default function Login() {
                         className="w-full bg-gradient-to-r from-teal-400 to-cyan-400 text-white text-lg py-3 rounded-xl shadow-md hover:brightness-110 transition disabled:opacity-60"
                         disabled={loading}
                     >
-                        {loading ? "Signing in..." : "Login"}
+                        {loading ? t("Signing in...") : t("Login")}
                     </button>
                 </form>
 
                 <p className="mt-5 text-gray-600">
-                    Not a member?{" "}
+                    {t("Not a member?")}{" "}
                     <span
                         className="text-teal-600 font-semibold hover:underline cursor-pointer"
                         onClick={() => navigate("/signup")}
                     >
-                        Sign up
+                        {t("Sign up")}
                     </span>
                 </p>
                 <p className="mt-3 text-sm text-teal-700">
-                    Have a QR invite?{" "}
+                    {t("Have a QR invite?")}{" "}
                     <span
                         className="font-semibold hover:underline cursor-pointer"
                         onClick={() => navigate("/join")}
                     >
-                        Scan to join
+                        {t("Scan to join")}
                     </span>
                 </p>
             </div>
         </div>
     );
 }
+

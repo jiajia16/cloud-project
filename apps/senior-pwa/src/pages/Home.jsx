@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { useLocale } from "../contexts/LocaleContext.jsx";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@silvertrails/ui";
+import LanguageSelector from "../components/LanguageSelector.jsx";
 import {
     Trophy,
     Gift,
     Calendar,
     BookOpen,
     LogOut,
-    Globe,
     User,
     Lightbulb,
     RefreshCcw,
@@ -33,6 +34,7 @@ const ACTIVE_REGISTRATION_STATUSES = new Set(["pending", "approved", "confirmed"
 
 export default function Home() {
     const { user, logout, tokens, refreshSession } = useAuth();
+    const { locale } = useLocale();
     const navigate = useNavigate();
     const accessToken = tokens?.access_token;
 
@@ -75,7 +77,7 @@ export default function Home() {
                 color: "bg-cyan-300",
             },
         ],
-        [],
+        [locale],
     );
 
     const inviteTrail = useMemo(() => {
@@ -158,12 +160,12 @@ export default function Home() {
 
     const handlePreviewInvite = useCallback(async () => {
         if (!accessToken) {
-            setInviteError("Sign in to use an invite code.");
+            setInviteError(t("common.errors.inviteSignIn"));
             return;
         }
         const trimmed = inviteToken.trim();
         if (!trimmed) {
-            setInviteError("Enter an invite code first.");
+            setInviteError(t("common.errors.inviteRequired"));
             return;
         }
         setInviteLoading(true);
@@ -183,12 +185,12 @@ export default function Home() {
 
     const handleAcceptInvite = useCallback(async () => {
         if (!accessToken) {
-            setInviteError("Sign in to use an invite code.");
+            setInviteError(t("common.errors.inviteSignIn"));
             return;
         }
         const trimmed = inviteToken.trim();
         if (!trimmed) {
-            setInviteError("Enter an invite code first.");
+            setInviteError(t("common.errors.inviteRequired"));
             return;
         }
         if (!invitePreview) {
@@ -360,20 +362,13 @@ export default function Home() {
     return (
         <div className="min-h-screen bg-cyan-50 flex flex-col items-center py-6 font-sans">
             <div className="w-full max-w-3xl flex justify-between items-center px-6 py-3 bg-white rounded-2xl shadow-sm">
-                <h1 className="text-xl font-bold text-cyan-700">SilverTrails</h1>
+                <h1 className="text-xl font-bold text-cyan-700">{t("common.appName")}</h1>
                 <div className="flex items-center gap-3">
-                    <button
-                        type="button"
-                        className="flex items-center gap-1 text-sm bg-cyan-100 px-3 py-1 rounded-xl hover:bg-cyan-200 transition"
-                        onClick={() => alert("Language selection coming soon!")}
-                    >
-                        <Globe className="w-4 h-4" />
-                        EN
-                    </button>
+                    <LanguageSelector />
                     <button
                         type="button"
                         className="flex items-center justify-center w-8 h-8 bg-cyan-100 rounded-full hover:bg-cyan-200 transition"
-                        onClick={() => alert("Profile screen coming soon!")}
+                        onClick={() => alert(t("home.profile.comingSoon"))}
                     >
                         <User className="w-5 h-5 text-cyan-700" />
                     </button>
@@ -383,7 +378,7 @@ export default function Home() {
                         onClick={handleLogout}
                     >
                         <LogOut className="w-4 h-4" />
-                        Log out
+                        {t("common.actions.logout")}
                     </button>
                 </div>
             </div>
@@ -394,22 +389,19 @@ export default function Home() {
                     role="alert"
                 >
                     <div>
-                        <h2 className="text-lg font-semibold">Almost there!</h2>
-                        <p className="mt-1 text-sm leading-5">
-                            You haven&apos;t joined an organisation yet. Pick one below to start registering for
-                            activities immediately, or ask an organiser to send you an invite.
-                        </p>
+                        <h2 className="text-lg font-semibold">{t("home.pendingOrg.title")}</h2>
+                        <p className="mt-1 text-sm leading-5">{t("home.pendingOrg.description")}</p>
                     </div>
                     <div className="flex flex-col gap-3 md:flex-row md:items-end">
                         <label className="flex-1 text-xs font-semibold text-amber-900">
-                            Choose organisation
+                            {t("home.pendingOrg.selectLabel")}
                             <select
                                 value={selectedOrg}
                                 onChange={(event) => setSelectedOrg(event.target.value)}
                                 className="mt-2 w-full rounded-xl border border-amber-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200"
                                 disabled={orgLoading || joinLoading}
                             >
-                                <option value="">Select organisation…</option>
+                                <option value="">{t("home.pendingOrg.selectPlaceholder")}</option>
                                 {orgOptions.map((org) => (
                                     <option key={org.id} value={org.id}>
                                         {org.name}
@@ -420,11 +412,11 @@ export default function Home() {
                         <Button
                             onClick={async () => {
                                 if (!selectedOrg) {
-                                    setOrgError("Select an organisation first.");
+                                    setOrgError(t("common.errors.selectOrganisation"));
                                     return;
                                 }
                                 if (!accessToken) {
-                                    setOrgError("Sign in again to continue.");
+                                    setOrgError(t("common.errors.reauth"));
                                     return;
                                 }
                                 setJoinLoading(true);
@@ -432,7 +424,7 @@ export default function Home() {
                                 setJoinSuccessMessage("");
                                 try {
                                     await selfJoinOrganisation({ accessToken, orgId: selectedOrg });
-                                    setJoinSuccessMessage("Joined successfully! Updating your dashboard…");
+                                    setJoinSuccessMessage(t("home.pendingOrg.success"));
                                     await refreshSession();
                                     await fetchData();
                                 } catch (err) {
@@ -446,7 +438,7 @@ export default function Home() {
                             disabled={joinLoading || orgLoading}
                             className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-xl"
                         >
-                            {joinLoading ? "Joining..." : "Join organisation"}
+                            {joinLoading ? t("home.pendingOrg.joining") : t("home.pendingOrg.cta")}
                         </Button>
                     </div>
                     {orgError && <p className="text-xs text-rose-600">{orgError}</p>}
@@ -455,19 +447,24 @@ export default function Home() {
             )}
 
             <div className="w-full max-w-3xl mt-6 bg-gradient-to-r from-cyan-400 to-teal-400 text-white p-6 rounded-2xl shadow-md">
-                <h2 className="text-2xl font-bold">Welcome back, {user?.name || "Friend"}!</h2>
-                <p className="text-cyan-50 mt-2">Ready for another wonderful day of activities?</p>
+                <h2 className="text-2xl font-bold">
+                    {t("home.hero.title", { name: user?.name ?? t("common.friend") })}
+                </h2>
+                <p className="text-cyan-50 mt-2">{t("home.hero.subtitle")}</p>
             </div>
 
             <div className="w-full max-w-3xl bg-white p-4 mt-4 rounded-2xl shadow-sm">
                 <div className="flex justify-between items-center mb-2 text-gray-700 font-semibold">
-                    <span>Your Progress</span>
+                    <span>{t("home.progress.title")}</span>
                     <span className="text-cyan-600">
-                        {confirmedCount} / {totalRegistrations || 1} activities confirmed
+                        {t("home.progress.summary", {
+                            confirmed: confirmedCount,
+                            total: totalRegistrations || 1,
+                        })}
                     </span>
                 </div>
                 <div className="flex justify-between text-gray-700 font-semibold mb-2">
-                    <span className="text-sm text-gray-500">Includes activities you have registered for.</span>
+                    <span className="text-sm text-gray-500">{t("home.progress.note")}</span>
                     <button
                         type="button"
                         onClick={() => fetchData()}
@@ -475,7 +472,7 @@ export default function Home() {
                         disabled={loading}
                     >
                         <RefreshCcw className="w-4 h-4" />
-                        Refresh
+                        {t("common.actions.refresh")}
                     </button>
                 </div>
                 <div className="w-full h-3 bg-gray-200 rounded-full">
@@ -490,34 +487,34 @@ export default function Home() {
             <div className="w-full max-w-3xl grid grid-cols-2 gap-4 mt-4">
                 <Card
                     icon={<BookOpen className="w-6 h-6 text-pink-500" />}
-                    title="My Trails"
-                    desc="Continue your learning journey"
+                    title={t("home.links.myTrails.title")}
+                    desc={t("home.links.myTrails.description")}
                     onClick={() => navigate("/mytrails")}
                 />
                 <Card
                     icon={<Trophy className="w-6 h-6 text-yellow-500" />}
-                    title="Leaderboard"
-                    desc="See how you rank with friends"
+                    title={t("home.links.leaderboard.title")}
+                    desc={t("home.links.leaderboard.description")}
                     onClick={() => navigate("/leaderboard")}
                 />
                 <Card
                     icon={<Gift className="w-6 h-6 text-red-500" />}
-                    title="Rewards"
-                    desc="Claim your earned rewards"
+                    title={t("home.links.rewards.title")}
+                    desc={t("home.links.rewards.description")}
                     onClick={() => navigate("/rewards")}
                 />
                 <Card
                     icon={<Calendar className="w-6 h-6 text-purple-500" />}
-                    title="Upcoming Events"
-                    desc="Join community activities"
-                    onClick={() => alert("Feature coming soon!")}
+                    title={t("home.links.upcoming.title")}
+                    desc={t("home.links.upcoming.description")}
+                    onClick={() => alert(t("home.links.upcomingComingSoon"))}
                 />
             </div>
 
             <div className="w-full max-w-3xl mt-6 bg-white p-5 rounded-2xl shadow-sm">
-                <h3 className="text-gray-800 font-bold text-lg">Have an invite code?</h3>
+                <h3 className="text-gray-800 font-bold text-lg">{t("home.invite.sectionTitle")}</h3>
                 <p className="text-sm text-gray-600 mt-1">
-                    Enter the code your organiser shared to join an activity instantly.
+                    {t("home.invite.sectionSubtitle")}
                 </p>
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                     <input
@@ -530,7 +527,7 @@ export default function Home() {
                             setInvitePreview(null);
                         }}
                         className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-200"
-                        placeholder="Enter invite code"
+                        placeholder={t("home.invite.placeholder")}
                         autoComplete="off"
                     />
                     <div className="flex gap-2">
@@ -540,7 +537,7 @@ export default function Home() {
                             disabled={inviteLoading}
                             className="px-4 py-2 rounded-xl border border-cyan-300 text-sm font-semibold text-cyan-700 hover:bg-cyan-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {inviteLoading ? "Checking..." : "Preview"}
+                            {inviteLoading ? t("home.invite.previewLoading") : t("home.invite.previewCta")}
                         </button>
                         <button
                             type="button"
@@ -548,7 +545,7 @@ export default function Home() {
                             disabled={inviteSubmitting || !invitePreview}
                             className="px-4 py-2 rounded-xl bg-cyan-500 text-white text-sm font-semibold hover:bg-cyan-600 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
                         >
-                            {inviteSubmitting ? "Joining..." : "Join"}
+                            {inviteSubmitting ? t("home.invite.joining") : t("home.invite.joinCta")}
                         </button>
                     </div>
                 </div>
@@ -557,7 +554,7 @@ export default function Home() {
                 {invitePreview && inviteTrail ? (
                     <div className="mt-4 rounded-xl border border-cyan-100 bg-cyan-50 p-4 text-sm text-gray-700">
                         <p className="text-base font-semibold text-gray-800">{inviteTrail.title}</p>
-                        <p className="mt-1">{inviteTrail.description ?? "Join this community activity."}</p>
+                        <p className="mt-1">{inviteTrail.description ?? t("home.invite.descriptionFallback")}</p>
                         <div className="mt-3 space-y-1">
                             <div className="flex items-center gap-2 text-gray-600">
                                 <CalendarRange className="w-4 h-4 text-cyan-600" />
@@ -570,7 +567,7 @@ export default function Home() {
                             </div>
                             <div className="flex items-center gap-2 text-gray-600">
                                 <MapPin className="w-4 h-4 text-cyan-600" />
-                                <span>{inviteTrail.location ?? "Location TBC"}</span>
+                                <span>{inviteTrail.location ?? t("common.labels.locationTbc")}</span>
                             </div>
                         </div>
                     </div>
@@ -578,12 +575,12 @@ export default function Home() {
             </div>
 
             <div className="w-full max-w-3xl mt-6 bg-white p-5 rounded-2xl shadow-sm">
-                <h3 className="text-gray-800 font-bold text-lg mb-4">Upcoming Trails</h3>
+                <h3 className="text-gray-800 font-bold text-lg mb-4">{t("home.upcoming.title")}</h3>
                 {loading && upcomingTrails.length === 0 ? (
-                    <p className="text-sm text-gray-500">Loading upcoming activities...</p>
+                    <p className="text-sm text-gray-500">{t("home.upcoming.loading")}</p>
                 ) : upcomingTrails.length === 0 ? (
                     <p className="text-sm text-gray-500">
-                        You are all caught up. New activities will appear here once available.
+                        {t("home.upcoming.empty")}
                     </p>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -591,7 +588,7 @@ export default function Home() {
                             <div key={trail.id} className="border border-gray-100 rounded-xl p-4 bg-cyan-50/60">
                                 <h4 className="font-semibold text-gray-800">{trail.title}</h4>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    {trail.description ?? "Join the community activity."}
+                                    {trail.description ?? t("home.upcoming.descriptionFallback")}
                                 </p>
                                 <div className="mt-3 space-y-1 text-sm text-gray-700">
                                     <div className="flex items-center gap-2">
@@ -605,7 +602,7 @@ export default function Home() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <MapPin className="w-4 h-4 text-cyan-600" />
-                                        <span>{trail.location ?? "To be confirmed"}</span>
+                                        <span>{trail.location ?? t("common.labels.toBeConfirmed")}</span>
                                     </div>
                                 </div>
                                 <button
@@ -613,7 +610,7 @@ export default function Home() {
                                     onClick={() => navigate("/mytrails")}
                                     className="mt-3 text-sm text-cyan-700 hover:text-cyan-800 font-semibold"
                                 >
-                                    View details{" \u2192 "}
+                                    {t("home.upcoming.viewDetails")} {"\u2192"}
                                 </button>
                             </div>
                         ))}
@@ -624,13 +621,13 @@ export default function Home() {
             <div className="w-full max-w-3xl bg-orange-100 mt-6 p-5 rounded-2xl shadow-sm">
                 <div className="flex items-center gap-3">
                     <Lightbulb className="w-6 h-6 text-orange-500" />
-                    <h3 className="text-orange-600 font-bold text-lg">Daily Motivation</h3>
+                    <h3 className="text-orange-600 font-bold text-lg">{t("home.daily.title")}</h3>
                 </div>
                 <p className="text-gray-700 mt-2">
-                    Keep moving! Confirmed activities count towards your community leaderboard.
+                    {t("home.daily.body")}
                 </p>
                 <button className="mt-3 px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition">
-                    Learn More
+                    {t("home.daily.cta")}
                 </button>
             </div>
 
@@ -666,3 +663,21 @@ function Card({ icon, title, desc, onClick }) {
         </button>
     );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

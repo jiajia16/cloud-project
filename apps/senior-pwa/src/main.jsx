@@ -3,14 +3,17 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import { AuthProvider } from "./contexts/AuthContext.jsx";
+import { LocaleProvider } from "./contexts/LocaleContext.jsx";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <LocaleProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </LocaleProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

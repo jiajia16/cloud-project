@@ -15,7 +15,7 @@
 - Senior PWA scan experience now calls the QR check-in service for live scans, manual token entry, and history (`apps/senior-pwa/src/services/checkins.js`, `apps/senior-pwa/src/pages/Scan.jsx`, reusing `components/QRScanner.jsx`).
 - Updated backend `checklist.md` to mark `GET /checkin/users/me` as implemented and note that `POST /checkin/scan` still needs end-to-end camera verification.
 - Senior PWA rewards screen now fetches live points, vouchers, and redemption history via points service (new `src/services/points.js`, updated `src/pages/Rewards.jsx`).
-- Senior PWA now includes a lightweight localisation helper (`apps/senior-pwa/src/i18n/index.js`); Home and Rewards reuse shared strings plus date/time formatting helpers so future locales only need dictionary updates.
+- Senior PWA now includes a production-ready localisation stack: the new `LocaleProvider` + `LanguageSelector` expose English/中文/Bahasa Melayu/தமிழ் options, `apps/senior-pwa/src/i18n/index.js` now ships full dictionaries + locale persistence, and the Home, Login, and Signup experiences read all copy through `t()` with translated error/cta text.
 - Updated checklist entries for points/voucher attendee APIs to "!" to indicate pending organiser-driven testing.
 - Senior PWA now consumes leaderboard & attendance services (new `src/services/leaderboard.js`, updated `src/pages/Leaderboard.jsx` and `src/pages/MyTrails.jsx`).
 - Added organiser dashboard auth context, organiser login page, and `organiserLogin` service consuming /auth/organisers/login.

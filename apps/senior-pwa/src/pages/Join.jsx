@@ -15,25 +15,14 @@ import QRScanner from "../components/QRScanner.jsx";
 import { extractTokenFromScan } from "../services/checkins.js";
 import { previewInvite, acceptInvite } from "../services/trails.js";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { useLocale } from "../contexts/LocaleContext.jsx";
 import { setPendingInviteToken } from "../utils/pendingInvite.js";
-
-function formatDateTime(value) {
-    if (!value) {
-        return "Date TBC";
-    }
-    try {
-        return new Intl.DateTimeFormat("en-SG", {
-            dateStyle: "medium",
-            timeStyle: "short",
-        }).format(new Date(value));
-    } catch (err) {
-        return value;
-    }
-}
+import { t, formatDateTime } from "../i18n/index.js";
 
 export default function Join() {
     const navigate = useNavigate();
     const { isAuthenticated, tokens } = useAuth();
+    useLocale();
     const accessToken = tokens?.access_token;
 
     const [manualToken, setManualToken] = useState("");
@@ -60,7 +49,7 @@ export default function Join() {
         async (candidateToken) => {
             const trimmed = candidateToken?.trim();
             if (!trimmed) {
-                setError("We couldn't read the invite. Please try again.");
+                setError(t("join.errors.unreadable"));
                 return;
             }
             setPreview(null);
@@ -75,7 +64,7 @@ export default function Join() {
             } catch (err) {
                 setError(
                     err?.message ??
-                        "That code isn't a valid invite. If you're trying to check in, open the Scan page instead."
+                        t("join.errors.invalid")
                 );
             } finally {
                 setPreviewLoading(false);
@@ -111,11 +100,11 @@ export default function Join() {
 
     const handleJoin = useCallback(async () => {
         if (!isAuthenticated) {
-            setError("Sign in first so we can add you to the activity.");
+            setError(t("join.errors.authRequired"));
             return;
         }
         if (!activeToken || !trailDetails) {
-            setError("Scan an invite and preview it before joining.");
+            setError(t("join.errors.previewRequired"));
             return;
         }
         setJoinLoading(true);
@@ -123,9 +112,9 @@ export default function Join() {
         setSuccess("");
         try {
             await acceptInvite({ accessToken, token: activeToken });
-            setSuccess("You're in! We'll update your trails shortly.");
+            setSuccess(t("join.success.joined"));
         } catch (err) {
-            setError(err?.message ?? "We couldn't join you with this invite.");
+            setError(err?.message ?? t("join.errors.joinFailure"));
         } finally {
             setJoinLoading(false);
         }
@@ -134,7 +123,7 @@ export default function Join() {
     const handleAuthRedirect = useCallback(
         (path) => {
             if (!activeToken) {
-                setError("Scan or enter an invite code first.");
+                setError(t("join.errors.inviteMissing"));
                 return;
             }
             setPendingInviteToken(activeToken);
@@ -167,7 +156,7 @@ export default function Join() {
                     className="flex items-center text-sm text-teal-700 hover:text-teal-800 mb-4"
                 >
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to {isAuthenticated ? "dashboard" : "login"}
+                    {t(isAuthenticated ? "join.back.dashboard" : "join.back.login")}
                 </button>
 
                 <div className="bg-white/95 backdrop-blur shadow-xl rounded-3xl px-6 py-8 space-y-6">
@@ -175,10 +164,9 @@ export default function Join() {
                         <div className="flex items-center gap-3 text-teal-700">
                             <QrCode className="w-7 h-7" />
                             <div>
-                                <h1 className="text-2xl font-semibold text-gray-800">Scan invite QR</h1>
+                                <h1 className="text-2xl font-semibold text-gray-800">{t("join.heading.title")}</h1>
                                 <p className="text-sm text-gray-600">
-                                    Use your camera to join an activity instantly. We'll remember the invite if you
-                                    need to sign in first.
+                                    {t("join.heading.subtitle")}
                                 </p>
                             </div>
                         </div>
@@ -190,19 +178,19 @@ export default function Join() {
                                 <QRScanner onResult={handleScan} />
                             </div>
                             <p className="text-xs text-gray-500">
-                                We only access your camera to read QR codes. No photos are stored.
+                                {t("join.cameraNotice")}
                             </p>
                         </div>
 
                         <div className="space-y-4">
                             <form onSubmit={handleManualPreview} className="space-y-3">
                                 <label className="block text-sm font-medium text-gray-700">
-                                    Invite link or code
+                                    {t("join.manual.label")}
                                     <input
                                         type="text"
                                         value={manualToken}
                                         onChange={(e) => setManualToken(e.target.value)}
-                                        placeholder="Scan or paste the invite link"
+                                        placeholder={t("join.manual.placeholder")}
                                         className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-3 text-sm focus:ring-2 focus:ring-teal-400 outline-none"
                                     />
                                 </label>
@@ -214,10 +202,10 @@ export default function Join() {
                                     {previewLoading ? (
                                         <span className="flex items-center justify-center gap-2">
                                             <Loader2 className="w-4 h-4 animate-spin" />
-                                            Checking invite...
+                                            {t("join.manual.checking")}
                                         </span>
                                     ) : (
-                                        "Preview invite"
+                                        t("join.manual.submit")
                                     )}
                                 </Button>
                             </form>
@@ -240,14 +228,14 @@ export default function Join() {
                                                 onClick={() => navigate("/mytrails")}
                                                 className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm px-4 py-2"
                                             >
-                                                View my trails
+                                                {t("join.success.viewTrails")}
                                             </Button>
                                             <Button
                                                 type="button"
                                                 onClick={() => navigate("/home")}
                                                 className="bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-50 text-sm px-4 py-2"
                                             >
-                                                Go to dashboard
+                                                {t("join.success.goDashboard")}
                                             </Button>
                                         </div>
                                     </div>
@@ -258,20 +246,20 @@ export default function Join() {
                                 <div className="rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-4">
                                     <h2 className="text-lg font-semibold text-gray-800">{trailDetails.title}</h2>
                                     <p className="mt-1 text-sm text-gray-600">
-                                        {trailDetails.description ?? "Join this community activity."}
+                                        {trailDetails.description ?? t("home.invite.descriptionFallback")}
                                     </p>
                                     <dl className="mt-4 space-y-2 text-sm text-gray-700">
                                         <div className="flex justify-between">
-                                            <dt className="font-medium">Starts</dt>
+                                            <dt className="font-medium">{t("join.details.starts")}</dt>
                                             <dd>{formatDateTime(trailDetails.starts_at)}</dd>
                                         </div>
                                         <div className="flex justify-between">
-                                            <dt className="font-medium">Ends</dt>
+                                            <dt className="font-medium">{t("join.details.ends")}</dt>
                                             <dd>{formatDateTime(trailDetails.ends_at)}</dd>
                                         </div>
                                         <div className="flex justify-between">
-                                            <dt className="font-medium">Location</dt>
-                                            <dd>{trailDetails.location ?? "Location TBC"}</dd>
+                                            <dt className="font-medium">{t("join.details.location")}</dt>
+                                            <dd>{trailDetails.location ?? t("common.labels.locationTbc")}</dd>
                                         </div>
                                     </dl>
 
@@ -286,10 +274,10 @@ export default function Join() {
                                                 {joinLoading ? (
                                                     <span className="flex items-center justify-center gap-2">
                                                         <Loader2 className="w-4 h-4 animate-spin" />
-                                                        Joining...
+                                                        {t("join.actions.joining")}
                                                     </span>
                                                 ) : (
-                                                    "Join this activity"
+                                                    t("join.actions.join")
                                                 )}
                                             </Button>
                                         ) : (
@@ -301,7 +289,7 @@ export default function Join() {
                                                 >
                                                     <span className="flex items-center justify-center gap-2">
                                                         <UserPlus className="w-4 h-4" />
-                                                        Sign up to join
+                                                        {t("join.actions.signup")}
                                                     </span>
                                                 </Button>
                                                 <Button
@@ -311,14 +299,14 @@ export default function Join() {
                                                 >
                                                     <span className="flex items-center justify-center gap-2">
                                                         <LogIn className="w-4 h-4" />
-                                                        Log in to join
+                                                        {t("join.actions.login")}
                                                     </span>
                                                 </Button>
                                             </div>
                                         )}
                                         {!isAuthenticated && (
                                             <p className="text-xs text-gray-500 text-center">
-                                                We'll remember this invite and finish registration after you sign in.
+                                                {t("join.remember")}
                                             </p>
                                         )}
                                     </div>

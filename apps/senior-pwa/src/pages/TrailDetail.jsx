@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { useLocale } from "../contexts/LocaleContext.jsx";
 import {
     getTrail,
     getMyRegistrations,
@@ -18,46 +19,74 @@ import {
     AlertCircle,
     CheckCircle,
 } from "lucide-react";
-
-function formatDate(value) {
-    if (!value) {
-        return "Date TBC";
-    }
-    try {
-        return new Intl.DateTimeFormat("en-SG", {
-            dateStyle: "medium",
-            timeStyle: "short",
-        }).format(new Date(value));
-    } catch (err) {
-        return value;
-    }
-}
-
-const STATUS_LABELS = {
-    pending: "Pending approval",
-    approved: "Approved",
-    confirmed: "Confirmed",
-    rejected: "Rejected",
-    cancelled: "Cancelled",
-    waitlisted: "Waitlisted",
-};
-
-const STATUS_DESCRIPTIONS = {
-    pending: "Your spot is awaiting organiser approval.",
-    approved: "Approved - organiser still needs to confirm your slot.",
-    confirmed: "You are confirmed. Remember to attend on time.",
-    rejected: "Unfortunately this registration was rejected.",
-    cancelled: "You have cancelled this registration.",
-    waitlisted: "Currently waitlisted - you will be moved up when slots free up.",
-};
+import { t, formatDateTime } from "../i18n/index.js";
 
 const INACTIVE_REGISTRATION_STATUSES = new Set(["cancelled", "rejected"]);
+
+function formatStatusText(value) {
+    if (!value) {
+        return "";
+    }
+    return String(value)
+        .replace(/[_-]+/g, " ")
+        .split(" ")
+        .map((word) => (word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : ""))
+        .join(" ");
+}
+
+function formatRegistrationStatus(status) {
+    if (!status) {
+        return "";
+    }
+    const key = `myTrails.status.${String(status).toLowerCase()}`;
+    const label = t(key);
+    return label === key ? formatStatusText(status) : label;
+}
+
+function formatRegistrationDescription(status) {
+    if (!status) {
+        return t("myTrails.detail.registration.descriptions.generic");
+    }
+    const key = `myTrails.detail.registration.descriptions.${String(status).toLowerCase()}`;
+    const label = t(key, { status: formatStatusText(status) });
+    return label === key
+        ? t("myTrails.detail.registration.descriptions.generic", {
+            status: formatStatusText(status),
+        })
+        : label;
+}
+
+function formatTrailStatus(status) {
+    if (!status) {
+        return t("myTrails.available.status.unknown", { status: "" });
+    }
+    const key = `myTrails.available.status.${String(status).toLowerCase()}`;
+    const label = t(key, { status: formatStatusText(status) });
+    return label === key ? formatStatusText(status) : label;
+}
+
+function formatDateRangeValue(start, end) {
+    const startText = start
+        ? formatDateTime(start, { fallbackKey: "common.labels.toBeConfirmed" })
+        : null;
+    const endText = end
+        ? formatDateTime(end, { fallbackKey: "common.labels.toBeConfirmed" })
+        : null;
+    if (startText && endText) {
+        return t("common.labels.dateRange", { start: startText, end: endText });
+    }
+    if (startText || endText) {
+        return startText || endText || "";
+    }
+    return t("common.labels.toBeConfirmed");
+}
 
 export default function TrailDetail() {
     const navigate = useNavigate();
     const location = useLocation();
     const { trailId } = useParams();
     const { tokens, user } = useAuth();
+    useLocale();
     const accessToken = tokens?.access_token;
 
     const [trail, setTrail] = useState(location.state?.trail ?? null);
@@ -112,7 +141,7 @@ export default function TrailDetail() {
                 setRegistration(matchingRegistration);
             } catch (err) {
                 if (!(signal?.aborted)) {
-                    setError(err?.message ?? "Unable to load trail information.");
+                    setError(err?.message ?? t("myTrails.detail.errors.load"));
                 }
             } finally {
                 if (!(signal?.aborted)) {
@@ -148,7 +177,7 @@ export default function TrailDetail() {
             await registerForTrail({ accessToken, trailId });
             await refresh();
         } catch (err) {
-            setError(err?.message ?? "Unable to join this trail. Please try again.");
+            setError(err?.message ?? t("myTrails.errors.register"));
         } finally {
             setActionLoading(false);
         }
@@ -167,14 +196,14 @@ export default function TrailDetail() {
             });
             await refresh();
         } catch (err) {
-            setError(err?.message ?? "Unable to cancel this registration. Please try again.");
+            setError(err?.message ?? t("myTrails.detail.registration.cancelError"));
         } finally {
             setActionLoading(false);
         }
     }, [accessToken, registration?.id, refresh]);
 
     return (
-        <Layout title="Trail Details">
+        <Layout title={t("myTrails.detail.title")}>
             <div className="space-y-6 max-w-3xl mx-auto">
                 <button
                     type="button"
@@ -182,7 +211,7 @@ export default function TrailDetail() {
                     className="flex items-center gap-2 text-sm text-cyan-700 hover:text-cyan-900"
                 >
                     <ArrowLeft className="w-4 h-4" />
-                    Back to Trails
+                    {t("myTrails.detail.back")}
                 </button>
 
                 {error && (
@@ -195,7 +224,9 @@ export default function TrailDetail() {
                 )}
 
                 {loading && (
-                    <Card className="p-6 text-sm text-gray-600">Loading trail details...</Card>
+                    <Card className="p-6 text-sm text-gray-600">
+                        {t("myTrails.detail.loading")}
+                    </Card>
                 )}
 
                 {!loading && trail && (
@@ -208,21 +239,28 @@ export default function TrailDetail() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-700">
                             <div className="flex items-center gap-2">
                                 <CalendarRange className="w-5 h-5 text-teal-600" />
-                                <span>
-                                    {formatDate(trail.starts_at)}{" \u2192 "}{formatDate(trail.ends_at)}
-                                </span>
+                                <span>{formatDateRangeValue(trail.starts_at, trail.ends_at)}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <MapPin className="w-5 h-5 text-teal-600" />
-                                <span>{trail.location ?? "To be confirmed"}</span>
+                                <span>{trail.location ?? t("common.labels.locationTbc")}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Users className="w-5 h-5 text-teal-600" />
-                                <span>Capacity: {trail.capacity}</span>
+                                <span>
+                                    {t("myTrails.detail.info.capacity", {
+                                        capacity:
+                                            trail.capacity ?? t("myTrails.available.capacityUnknown"),
+                                    })}
+                                </span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <CheckCircle className="w-5 h-5 text-teal-600" />
-                                <span>Status: {trail.status}</span>
+                                <span>
+                                    {t("myTrails.detail.info.status", {
+                                        status: formatTrailStatus(trail.status),
+                                    })}
+                                </span>
                             </div>
                         </div>
 
@@ -230,18 +268,19 @@ export default function TrailDetail() {
                             <div className="space-y-3">
                                 <Card className="bg-cyan-50 border border-cyan-100">
                                     <p className="font-semibold text-cyan-800 text-sm">
-                                        Registration status:
+                                        {t("myTrails.detail.registration.heading")}
                                     </p>
                                     <p className="text-lg font-bold text-cyan-700">
-                                        {STATUS_LABELS[registration.status] ?? registration.status}
+                                        {formatRegistrationStatus(registration.status)}
                                     </p>
                                     <p className="text-sm text-cyan-700/80">
-                                        {STATUS_DESCRIPTIONS[registration.status] ??
-                                            "We will notify you when there is an update."}
+                                        {formatRegistrationDescription(registration.status)}
                                     </p>
                                     {registration.note && (
                                         <p className="mt-2 text-xs text-cyan-800/80">
-                                            Your note: {registration.note}
+                                            {t("myTrails.messages.registrationNote", {
+                                                note: registration.note,
+                                            })}
                                         </p>
                                     )}
                                 </Card>
@@ -252,12 +291,14 @@ export default function TrailDetail() {
                                             className="bg-rose-500 hover:bg-rose-600 text-white"
                                             disabled={actionLoading}
                                         >
-                                            {actionLoading ? "Cancelling..." : "Cancel registration"}
+                                            {actionLoading
+                                                ? t("myTrails.detail.registration.cancelling")
+                                                : t("myTrails.detail.registration.cancel")}
                                         </Button>
                                     )}
                                     {!canCancel && (
                                         <p className="text-xs text-gray-500">
-                                            This registration can no longer be cancelled.
+                                            {t("myTrails.detail.registration.noCancel")}
                                         </p>
                                     )}
                                 </div>
@@ -265,14 +306,16 @@ export default function TrailDetail() {
                         ) : (
                             <div className="space-y-3">
                                 <p className="text-sm text-gray-700">
-                                    You have not joined this trail yet. Secure your spot now.
+                                    {t("myTrails.detail.callToAction.prompt")}
                                 </p>
                                 <Button
                                     onClick={handleJoin}
                                     className="bg-teal-500 hover:bg-teal-600 text-white"
                                     disabled={actionLoading}
                                 >
-                                    {actionLoading ? "Joining..." : "Join this trail"}
+                                    {actionLoading
+                                        ? t("myTrails.detail.callToAction.joining")
+                                        : t("myTrails.detail.callToAction.join")}
                                 </Button>
                             </div>
                         )}

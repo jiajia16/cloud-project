@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Camera, CalendarRange, MapPin, RefreshCcw, XCircle } from "lucide-react";
 import { Card, Button, SectionTitle } from "@silvertrails/ui";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { useLocale } from "../contexts/LocaleContext.jsx";
 import {
     getMyConfirmedTrails,
     getMyRegistrations,
@@ -11,35 +12,14 @@ import {
     registerForTrail,
 } from "../services/trails.js";
 import { getMyAttendance } from "../services/leaderboard.js";
-
-const STATUS_LABELS = {
-    pending: "Pending approval",
-    approved: "Approved",
-    confirmed: "Confirmed",
-    rejected: "Rejected",
-    cancelled: "Cancelled",
-    waitlisted: "Waitlisted",
-};
+import { t, formatDateTime } from "../i18n/index.js";
 
 const ACTIVE_REGISTRATION_STATUSES = new Set(["pending", "approved", "confirmed", "waitlisted"]);
-
-function formatDateTime(value) {
-    if (!value) {
-        return "TBC";
-    }
-    try {
-        return new Intl.DateTimeFormat("en-SG", {
-            dateStyle: "medium",
-            timeStyle: "short",
-        }).format(new Date(value));
-    } catch (err) {
-        return value;
-    }
-}
 
 export default function MyTrails() {
     const navigate = useNavigate();
     const { tokens } = useAuth();
+    useLocale();
     const accessToken = tokens?.access_token;
 
     const [loading, setLoading] = useState(false);
@@ -49,6 +29,47 @@ export default function MyTrails() {
     const [confirmedTrails, setConfirmedTrails] = useState([]);
     const [attendance, setAttendance] = useState([]);
     const [registeringTrailId, setRegisteringTrailId] = useState(null);
+
+    const formatStatusText = (value) => {
+        if (!value) {
+            return "";
+        }
+        return String(value)
+            .replace(/[_-]+/g, " ")
+            .split(" ")
+            .map((word) => (word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : ""))
+            .join(" ");
+    };
+
+    const formatRegistrationStatus = (status) => {
+        if (!status) {
+            return "";
+        }
+        const key = `myTrails.status.${String(status).toLowerCase()}`;
+        const label = t(key);
+        return label === key ? formatStatusText(status) : label;
+    };
+
+    const formatTrailStatus = (status) => {
+        if (!status) {
+            return t("myTrails.available.status.unknown", { status: "" });
+        }
+        const key = `myTrails.available.status.${String(status).toLowerCase()}`;
+        const label = t(key, { status: formatStatusText(status) });
+        return label === key ? formatStatusText(status) : label;
+    };
+
+    const formatDateRangeValue = (start, end) => {
+        const startText = start ? formatDateTime(start, { fallbackKey: "common.labels.toBeConfirmed" }) : null;
+        const endText = end ? formatDateTime(end, { fallbackKey: "common.labels.toBeConfirmed" }) : null;
+        if (startText && endText) {
+            return t("common.labels.dateRange", { start: startText, end: endText });
+        }
+        if (startText || endText) {
+            return startText || endText || "";
+        }
+        return t("common.labels.toBeConfirmed");
+    };
 
     const fetchAll = useCallback(
         async (signal) => {
@@ -70,7 +91,7 @@ export default function MyTrails() {
                 setAttendance(attendanceRes ?? []);
             } catch (err) {
                 if (!(signal?.aborted)) {
-                    setError(err?.message ?? "Failed to load your trails.");
+                    setError(err?.message ?? t("myTrails.errors.load"));
                 }
             } finally {
                 if (!(signal?.aborted)) {
@@ -167,7 +188,7 @@ export default function MyTrails() {
                 await registerForTrail({ accessToken, trailId });
                 await fetchAll();
             } catch (err) {
-                setError(err?.message ?? "Unable to join trail. Please try again.");
+                setError(err?.message ?? t("myTrails.errors.register"));
             } finally {
                 setRegisteringTrailId(null);
             }
@@ -176,11 +197,11 @@ export default function MyTrails() {
     );
 
     return (
-        <Layout title="My Trails">
+        <Layout title={t("myTrails.pageTitle")}>
             <div className="space-y-6">
                 <Card className="bg-gradient-to-r from-teal-400 to-cyan-400 text-white p-5">
-                    <h2 className="text-2xl font-bold mb-1">My Trails</h2>
-                    <p className="opacity-90">Track your upcoming activities and view your progress.</p>
+                    <h2 className="text-2xl font-bold mb-1">{t("myTrails.hero.title")}</h2>
+                    <p className="opacity-90">{t("myTrails.hero.description")}</p>
                     <div className="mt-4 bg-white/15 rounded-full h-3 overflow-hidden">
                         <div
                             className="h-full bg-white/80 transition-all"
@@ -188,7 +209,11 @@ export default function MyTrails() {
                         />
                     </div>
                     <p className="mt-2 text-sm">
-                        {confirmedCount} of {totalRegistrations || 1} activities confirmed ({progressPct}%)
+                        {t("myTrails.hero.progressSummary", {
+                            confirmed: confirmedCount,
+                            total: totalRegistrations || 1,
+                            percent: progressPct,
+                        })}
                     </p>
                 </Card>
 
@@ -204,22 +229,22 @@ export default function MyTrails() {
                 <div className="flex flex-wrap items-center gap-3">
                     <Button onClick={() => fetchAll()} variant="neutral" disabled={loading}>
                         <RefreshCcw className="w-4 h-4" />
-                        Refresh
+                        {t("common.actions.refresh")}
                     </Button>
 
                     <Button onClick={() => navigate("/scan")} variant="positive">
                         <Camera className="w-4 h-4" />
-                        Scan QR to Mark Activity Done
+                        {t("myTrails.actions.scan")}
                     </Button>
                 </div>
 
 
-                <SectionTitle title="Registered Activities" />
+                <SectionTitle title={t("myTrails.sections.registered")} />
                 {loading && enrichedRegistrations.length === 0 ? (
-                    <Card className="p-4 text-sm text-gray-600">Loading your activities...</Card>
+                    <Card className="p-4 text-sm text-gray-600">{t("myTrails.messages.loadingRegistered")}</Card>
                 ) : enrichedRegistrations.length === 0 ? (
                     <Card className="p-4 text-sm text-gray-600">
-                        You have not joined any trails yet. Explore the available activities below!
+                        {t("myTrails.messages.noRegistrations")}
                     </Card>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -228,42 +253,42 @@ export default function MyTrails() {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <h3 className="font-semibold text-lg">
-                                            {reg.trail?.title ?? "Trail"}
+                                            {reg.trail?.title ?? t("myTrails.labels.trailFallback")}
                                         </h3>
                                         <p className="text-sm text-gray-600">
-                                            {reg.trail?.description ?? "Stay tuned for more details."}
+                                            {reg.trail?.description ?? t("myTrails.messages.trailDescriptionFallback")}
                                         </p>
                                     </div>
                                     <span className="text-xs font-semibold px-2 py-1 rounded-full bg-teal-100 text-teal-700 uppercase tracking-wide">
-                                        {STATUS_LABELS[reg.status] ?? reg.status}
+                                        {formatRegistrationStatus(reg.status)}
                                     </span>
                                 </div>
                                 <div className="flex flex-wrap gap-3 text-sm text-gray-700">
                                     <span className="flex items-center gap-1">
                                         <CalendarRange className="w-4 h-4 text-teal-500" />
-                                        {formatDateTime(reg.trail?.starts_at)}{" \u2192 "}{formatDateTime(reg.trail?.ends_at)}
+                                        {formatDateRangeValue(reg.trail?.starts_at, reg.trail?.ends_at)}
                                     </span>
                                     <span className="flex items-center gap-1">
                                         <MapPin className="w-4 h-4 text-teal-500" />
-                                        {reg.trail?.location ?? "To be confirmed"}
+                                        {reg.trail?.location ?? t("common.labels.locationTbc")}
                                     </span>
                                 </div>
                                 {reg.note && (
                                     <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-2">
-                                        Your note: {reg.note}
+                                        {t("myTrails.messages.registrationNote", { note: reg.note })}
                                     </p>
                                 )}
                                 <div className="flex justify-end gap-2 pt-2">
                                     <Button
                                         onClick={() =>
                                             openTrailDetail(
-                                                reg.trail ?? { id: reg.trail_id, title: "Trail" },
+                                                reg.trail ?? { id: reg.trail_id, title: t("myTrails.labels.trailFallback") },
                                                 reg
                                             )
                                         }
                                         className="bg-white border border-teal-200 text-teal-700 hover:bg-teal-50 text-sm"
                                     >
-                                        View details
+                                        {t("myTrails.actions.viewDetails")}
                                     </Button>
                                 </div>
                             </Card>
@@ -271,13 +296,13 @@ export default function MyTrails() {
                     </div>
                 )}
 
-                <SectionTitle title="Attendance History" />
+                <SectionTitle title={t("myTrails.sections.attendance")} />
                 <Card>
                     {loading && attendance.length === 0 ? (
-                        <p className="text-sm text-gray-600">Loading your attendance…</p>
+                        <p className="text-sm text-gray-600">{t("myTrails.messages.loadingAttendance")}</p>
                     ) : attendanceHistory.length === 0 ? (
                         <p className="text-sm text-gray-600">
-                            No organiser-confirmed attendance recorded yet. Scan a QR code and check back!
+                            {t("myTrails.messages.noAttendance")}
                         </p>
                     ) : (
                         <ul className="divide-y">
@@ -287,14 +312,20 @@ export default function MyTrails() {
                                     <li key={entry.id} className="py-3 text-sm flex justify-between gap-3">
                                         <div>
                                             <p className="font-medium text-gray-800">
-                                                {trail?.title ?? `Trail ${entry.trail_id.slice(0, 8).toUpperCase()}`}
+                                                {trail?.title ?? t("myTrails.labels.trailWithIdFallback", {
+                                                    id: entry.trail_id.slice(0, 8).toUpperCase(),
+                                                })}
                                             </p>
                                             <p className="text-xs text-gray-500">
-                                                {formatDateTime(entry.checked_at)}
+                                                {formatDateTime(entry.checked_at, {
+                                                    fallbackKey: "common.pending",
+                                                })}
                                             </p>
                                         </div>
                                         <span className="text-xs text-gray-500">
-                                            Org {entry.org_id.slice(0, 8).toUpperCase()}
+                                            {t("myTrails.attendance.orgLabel", {
+                                                org: entry.org_id.slice(0, 8).toUpperCase(),
+                                            })}
                                         </span>
                                     </li>
                                 );
@@ -303,12 +334,12 @@ export default function MyTrails() {
                     )}
                 </Card>
 
-                <SectionTitle title="Available Trails to Join" />
+                <SectionTitle title={t("myTrails.sections.available")} />
                 {loading && trails.length === 0 ? (
-                    <Card className="p-4 text-sm text-gray-600">Loading available trails...</Card>
+                    <Card className="p-4 text-sm text-gray-600">{t("myTrails.messages.loadingAvailable")}</Card>
                 ) : availableTrails.length === 0 ? (
                     <Card className="p-4 text-sm text-gray-600">
-                        No new trails at the moment - check back soon!
+                        {t("myTrails.messages.noAvailable")}
                     </Card>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -317,37 +348,42 @@ export default function MyTrails() {
                                 <div>
                                     <h3 className="font-semibold text-lg">{trail.title}</h3>
                                     <p className="text-sm text-gray-600">
-                                        {trail.description ?? "Discover a new activity with friends."}
+                                        {trail.description ?? t("myTrails.messages.availableDescription")}
                                     </p>
                                 </div>
                                 <div className="flex flex-wrap gap-3 text-sm text-gray-700">
                                     <span className="flex items-center gap-1">
                                         <CalendarRange className="w-4 h-4 text-teal-500" />
-                                        {formatDateTime(trail.starts_at)}{" \u2192 "}{formatDateTime(trail.ends_at)}
+                                        {formatDateRangeValue(trail.starts_at, trail.ends_at)}
                                     </span>
                                     <span className="flex items-center gap-1">
                                         <MapPin className="w-4 h-4 text-teal-500" />
-                                        {trail.location ?? "To be confirmed"}
+                                        {trail.location ?? t("common.labels.locationTbc")}
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-gray-600">
-                                        Capacity: {trail.capacity} | Status: {" "}
-                                        <span className="capitalize">{trail.status}</span>
+                                        {t("myTrails.available.capacityStatus", {
+                                            capacity:
+                                                trail.capacity ?? t("myTrails.available.capacityUnknown"),
+                                            status: formatTrailStatus(trail.status),
+                                        })}
                                     </span>
                                     <div className="flex gap-2">
                                         <Button
                                             onClick={() => openTrailDetail(trail)}
                                             className="bg-white border border-teal-200 text-teal-700 hover:bg-teal-50 text-sm"
                                         >
-                                            Details
+                                            {t("myTrails.actions.details")}
                                         </Button>
                                         <Button
                                             onClick={() => handleRegister(trail.id)}
                                             disabled={registeringTrailId === trail.id}
                                             className="bg-teal-500 hover:bg-teal-600 text-white text-sm"
                                         >
-                                            {registeringTrailId === trail.id ? "Joining..." : "Join Trail"}
+                                            {registeringTrailId === trail.id
+                                                ? t("myTrails.actions.joining")
+                                                : t("myTrails.actions.join")}
                                         </Button>
                                     </div>
                                 </div>
@@ -358,20 +394,22 @@ export default function MyTrails() {
 
                 {confirmedTrails.length > 0 && (
                     <>
-                        <SectionTitle title="Confirmed Trails" />
+                        <SectionTitle title={t("myTrails.sections.confirmed")} />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {confirmedTrails.map((trail) => (
                                 <Card key={trail.id} className="p-4 space-y-2">
                                     <h3 className="font-semibold text-lg">{trail.title}</h3>
-                                    <p className="text-sm text-gray-600">{trail.description}</p>
+                                    <p className="text-sm text-gray-600">
+                                        {trail.description ?? t("myTrails.messages.trailDescriptionFallback")}
+                                    </p>
                                     <div className="flex flex-wrap gap-3 text-sm text-gray-700">
                                         <span className="flex items-center gap-1">
                                             <CalendarRange className="w-4 h-4 text-teal-500" />
-                                            {formatDateTime(trail.starts_at)}{" \u2192 "}{formatDateTime(trail.ends_at)}
+                                            {formatDateRangeValue(trail.starts_at, trail.ends_at)}
                                         </span>
                                         <span className="flex items-center gap-1">
                                             <MapPin className="w-4 h-4 text-teal-500" />
-                                            {trail.location ?? "To be confirmed"}
+                                            {trail.location ?? t("common.labels.locationTbc")}
                                         </span>
                                     </div>
                                     <div className="flex justify-end">
@@ -379,7 +417,7 @@ export default function MyTrails() {
                                             onClick={() => openTrailDetail(trail)}
                                             className="bg-white border border-teal-200 text-teal-700 hover:bg-teal-50 text-sm"
                                         >
-                                            View details
+                                            {t("myTrails.actions.viewDetails")}
                                         </Button>
                                     </div>
                                 </Card>
