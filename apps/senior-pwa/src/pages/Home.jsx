@@ -27,43 +27,9 @@ import {
     consumePendingInviteToken,
     consumePendingInviteResult,
 } from "../utils/pendingInvite.js";
-
-const HIGHLIGHTS = [
-    {
-        title: "Seniors Tai Chi",
-        subtitle: "Morning Tai Chi",
-        desc: "Join Uncle Lim and friends every Tuesday",
-        color: "bg-cyan-300",
-    },
-    {
-        title: "Cooking Class",
-        subtitle: "Cooking Workshop",
-        desc: "Learn traditional recipes together",
-        color: "bg-orange-300",
-    },
-    {
-        title: "Garden Club",
-        subtitle: "Garden Club",
-        desc: "Grow herbs and vegetables together",
-        color: "bg-cyan-300",
-    },
-];
+import { t, formatDateTime } from "../i18n/index.js";
 
 const ACTIVE_REGISTRATION_STATUSES = new Set(["pending", "approved", "confirmed", "waitlisted"]);
-
-function formatDate(value) {
-    if (!value) {
-        return "Date TBC";
-    }
-    try {
-        return new Intl.DateTimeFormat("en-SG", {
-            dateStyle: "medium",
-            timeStyle: "short",
-        }).format(new Date(value));
-    } catch (err) {
-        return value;
-    }
-}
 
 export default function Home() {
     const { user, logout, tokens, refreshSession } = useAuth();
@@ -87,6 +53,30 @@ export default function Home() {
     const [selectedOrg, setSelectedOrg] = useState("");
     const [joinLoading, setJoinLoading] = useState(false);
     const [joinSuccessMessage, setJoinSuccessMessage] = useState("");
+
+    const highlights = useMemo(
+        () => [
+            {
+                title: t("home.highlights.taiChi.title"),
+                subtitle: t("home.highlights.taiChi.subtitle"),
+                desc: t("home.highlights.taiChi.description"),
+                color: "bg-cyan-300",
+            },
+            {
+                title: t("home.highlights.cooking.title"),
+                subtitle: t("home.highlights.cooking.subtitle"),
+                desc: t("home.highlights.cooking.description"),
+                color: "bg-orange-300",
+            },
+            {
+                title: t("home.highlights.garden.title"),
+                subtitle: t("home.highlights.garden.subtitle"),
+                desc: t("home.highlights.garden.description"),
+                color: "bg-cyan-300",
+            },
+        ],
+        [],
+    );
 
     const inviteTrail = useMemo(() => {
         if (!invitePreview) {
@@ -115,7 +105,7 @@ export default function Home() {
                 setOrgOptions(Array.isArray(orgs) ? orgs : []);
             })
             .catch((err) => {
-                setOrgError(err?.message ?? "Unable to load organisations right now.");
+                setOrgError(err?.message ?? t("common.errors.organisationsLoad"));
                 setOrgOptions([]);
             })
             .finally(() => {
@@ -155,7 +145,7 @@ export default function Home() {
                 setAvailableTrails(upcoming);
             } catch (err) {
                 if (!(signal?.aborted)) {
-                    setError(err?.message ?? "Unable to load your trail information.");
+                    setError(err?.message ?? t("common.errors.trailsLoad"));
                 }
             } finally {
                 if (!(signal?.aborted)) {
@@ -185,7 +175,7 @@ export default function Home() {
             const preview = await previewInvite({ accessToken, token: trimmed });
             setInvitePreview(preview ?? null);
         } catch (err) {
-            setInviteError(err?.message ?? "Unable to preview invite.");
+            setInviteError(err?.message ?? t("common.errors.invitePreview"));
         } finally {
             setInviteLoading(false);
         }
@@ -202,7 +192,7 @@ export default function Home() {
             return;
         }
         if (!invitePreview) {
-            setInviteError("Preview the invite before joining.");
+            setInviteError(t("common.errors.invitePreviewRequired"));
             return;
         }
         setInviteSubmitting(true);
@@ -213,13 +203,15 @@ export default function Home() {
                 invitePreview?.trail?.title ??
                 (typeof invitePreview?.title === "string" ? invitePreview.title : undefined);
             setInviteSuccess(
-                `You're registered for ${joinedTitle ?? "the activity"}!`
+                t("common.success.inviteRegistered", {
+                    title: joinedTitle ?? t("home.invite.fallbackTitle"),
+                }),
             );
             setInvitePreview(null);
             setInviteToken("");
             await fetchData();
         } catch (err) {
-            setInviteError(err?.message ?? "Unable to join with this invite.");
+            setInviteError(err?.message ?? t("common.errors.inviteJoin"));
         } finally {
             setInviteSubmitting(false);
         }
@@ -247,11 +239,13 @@ export default function Home() {
                     ? result.trailTitle
                     : "";
             setInviteSuccess(
-                title ? `You're registered for ${title}!` : "Invite accepted! You're all set."
+                title
+                    ? t("common.success.inviteRegistered", { title })
+                    : t("home.invite.acceptedGeneric")
             );
             fetchData().catch(() => {});
         } else if (result.status === "error") {
-            setInviteError(result.message ?? "We couldn't process your invite.");
+            setInviteError(result.message ?? t("home.invite.processError"));
         }
     }, [fetchData]);
 
@@ -297,7 +291,7 @@ export default function Home() {
                     if (/already registered/i.test(message)) {
                         alreadyRegistered = true;
                     } else {
-                        setInviteError(message || "We couldn't join you with this invite.");
+                        setInviteError(message || t("common.errors.inviteGeneric"));
                         return;
                     }
                 }
@@ -312,14 +306,14 @@ export default function Home() {
                 if (alreadyRegistered) {
                     setInviteSuccess(
                         title
-                            ? `You're already registered for ${title}.`
-                            : "You're already registered for this activity."
+                            ? t("home.invite.alreadyRegisteredWithTitle", { title })
+                            : t("home.invite.alreadyRegisteredGeneric"),
                     );
                 } else {
                     setInviteSuccess(
                         title
-                            ? `You're registered for ${title}!`
-                            : "Invite accepted! You're all set."
+                            ? t("common.success.inviteRegistered", { title })
+                            : t("home.invite.acceptedGeneric"),
                     );
                 }
 
@@ -332,9 +326,7 @@ export default function Home() {
                 if (cancelled || err?.name === "AbortError") {
                     return;
                 }
-                setInviteError(
-                    err?.message ?? "We couldn't process the invite you scanned earlier."
-                );
+                setInviteError(err?.message ?? t("home.invite.scannedError"));
             } finally {
                 if (!cancelled) {
                     setInviteLoading(false);
@@ -444,7 +436,9 @@ export default function Home() {
                                     await refreshSession();
                                     await fetchData();
                                 } catch (err) {
-                                    setOrgError(err?.message ?? "Unable to join this organisation right now.");
+                                    setOrgError(
+                                        err?.message ?? t("common.errors.joinOrganisation"),
+                                    );
                                 } finally {
                                     setJoinLoading(false);
                                 }
@@ -568,7 +562,10 @@ export default function Home() {
                             <div className="flex items-center gap-2 text-gray-600">
                                 <CalendarRange className="w-4 h-4 text-cyan-600" />
                                 <span>
-                                    {formatDate(inviteTrail.starts_at)}{" \u2192 "}{formatDate(inviteTrail.ends_at)}
+                                    {t("common.labels.dateRange", {
+                                        start: formatDateTime(inviteTrail.starts_at),
+                                        end: formatDateTime(inviteTrail.ends_at),
+                                    })}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2 text-gray-600">
@@ -600,7 +597,10 @@ export default function Home() {
                                     <div className="flex items-center gap-2">
                                         <CalendarRange className="w-4 h-4 text-cyan-600" />
                                         <span>
-                                            {formatDate(trail.starts_at)}{" \u2192 "}{formatDate(trail.ends_at)}
+                                            {t("common.labels.dateRange", {
+                                                start: formatDateTime(trail.starts_at),
+                                                end: formatDateTime(trail.ends_at),
+                                            })}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -635,9 +635,11 @@ export default function Home() {
             </div>
 
             <div className="w-full max-w-3xl mt-6 bg-white p-5 rounded-2xl shadow-sm">
-                <h3 className="text-gray-800 font-bold text-lg mb-4">Community Highlights</h3>
+                <h3 className="text-gray-800 font-bold text-lg mb-4">
+                    {t("home.sections.highlightsTitle")}
+                </h3>
                 <div className="grid grid-cols-3 gap-4">
-                    {HIGHLIGHTS.map((highlight, index) => (
+                    {highlights.map((highlight, index) => (
                         <div key={index} className={`${highlight.color} text-white p-4 rounded-2xl text-center shadow-sm`}>
                             <h4 className="text-lg font-bold mb-2">{highlight.title}</h4>
                             <p className="text-sm">{highlight.subtitle}</p>

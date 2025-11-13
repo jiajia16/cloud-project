@@ -17,20 +17,7 @@ import {
     getMyRedemptions,
 } from "../services/points.js";
 import { getTrail, getMyTrailActivities } from "../services/trails.js";
-
-function formatDate(value) {
-    if (!value) {
-        return "Pending";
-    }
-    try {
-        return new Intl.DateTimeFormat("en-SG", {
-            dateStyle: "medium",
-            timeStyle: "short",
-        }).format(new Date(value));
-    } catch (err) {
-        return value;
-    }
-}
+import { t, formatDateTime } from "../i18n/index.js";
 
 export default function Rewards() {
     const { tokens, user } = useAuth();
@@ -85,7 +72,7 @@ export default function Rewards() {
                 setRedemptions(Array.isArray(redemptionsRes) ? redemptionsRes : []);
             } catch (err) {
                 if (!(signal?.aborted)) {
-                    setError(err?.message ?? "Unable to load your rewards at the moment.");
+                setError(err?.message ?? t("common.errors.rewardsLoad"));
                 }
             } finally {
                 if (!(signal?.aborted)) {
@@ -113,7 +100,7 @@ export default function Rewards() {
                 return;
             }
             if (!selectedOrgId) {
-                setRedeemError("Join an organisation to redeem rewards.");
+                setRedeemError(t("common.errors.redeemJoinOrg"));
                 return;
             }
             setRedeemingId(voucher.id);
@@ -128,7 +115,7 @@ export default function Rewards() {
                 });
                 await refreshData();
             } catch (err) {
-                setRedeemError(err?.message ?? "Unable to redeem this reward right now.");
+                setRedeemError(err?.message ?? t("common.errors.redeemFailure"));
             } finally {
                 setRedeemingId(null);
             }
@@ -382,7 +369,11 @@ export default function Rewards() {
                     </div>
                     {balance?.updated_at && (
                         <p className="text-xs text-gray-500">
-                            Last updated {formatDate(balance.updated_at)}
+                            {t("rewards.labels.lastUpdated", {
+                                datetime: formatDateTime(balance.updated_at, {
+                                    fallbackKey: "common.pending",
+                                }),
+                            })}
                         </p>
                     )}
                     {error && (
@@ -494,7 +485,11 @@ export default function Rewards() {
                                 </p>
                                 {redeemSuccess.redeemed_at && (
                                     <p className="text-xs text-emerald-600 mt-1">
-                                        Redeemed at {formatDate(redeemSuccess.redeemed_at)}
+                                        {t("rewards.labels.redeemedAt", {
+                                            datetime: formatDateTime(redeemSuccess.redeemed_at, {
+                                                fallbackKey: "common.pending",
+                                            }),
+                                        })}
                                     </p>
                                 )}
                             </div>
@@ -515,9 +510,9 @@ export default function Rewards() {
                                                     {entry.displayLabel}
                                                 </p>
                                                 <p className="text-xs text-gray-500">
-                                                    {entry.displayContext
-                                                        ? `${entry.displayContext} - ${formatDate(entry.occurred_at)}`
-                                                        : formatDate(entry.occurred_at)}
+                                                {entry.displayContext
+                                                    ? `${entry.displayContext} - ${formatDateTime(entry.occurred_at)}`
+                                                    : formatDateTime(entry.occurred_at)}
                                                 </p>
                                             </div>
                                             <span
@@ -563,7 +558,9 @@ export default function Rewards() {
                                                     </p>
                                                 )}
                                                 <p className="text-xs text-gray-500 mt-1">
-                                                    {formatDate(entry.redeemed_at)}
+                                                    {formatDateTime(entry.redeemed_at, {
+                                                        fallbackKey: "common.pending",
+                                                    })}
                                                 </p>
                                                 {entry.voucher_code && (
                                                     <p className="text-xs text-gray-600 mt-1 font-mono">
@@ -582,3 +579,4 @@ export default function Rewards() {
         </Layout>
     );
 }
+

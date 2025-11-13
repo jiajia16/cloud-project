@@ -3,8 +3,6 @@
 - [x] Allow seniors to re-register for an event they previously cancelled (ensure UI re-enables the join action and backend accepts the repeat registration).
 - [x] Add organiser dashboard view to monitor all seniors' point balances with organisation filters.
 - [x] Build attendee-facing invite consumption flow so seniors can register via tokens organisers share.
-- [x] Instrument cross-service observability so voucher redemption, manual adjustments, and QR scans emit audit logs and Prometheus counters.
-- [x] Fix invite-based registrations and the senior trails tabs by returning full timestamp metadata and handling unlimited-capacity trails without crashing.
 - [x] Let organiser tools accept NRIC lookups everywhere (status checks, registrations, point adjustments) instead of raw user IDs.
 - [x] Expose senior balance monitoring so organisers aren't limited to their own ledger (shares scope with monitoring view above).
 - [x] Add QR "scan to join" experience for unregistered seniors - available via /join with auto hand-off after login.
@@ -95,9 +93,9 @@ REPORTS
 - [ ] Expand automated coverage across services by adding integration tests for points awarding/redemption in `points-vouchers-rules-svc` and UI tests for the senior rewards flow in `apps/senior-pwa`. This guards against regressions whenever the ledger or voucher logic changes and gives confidence before releases.
 - [x] Fix Manage Trails check-in QR generator so the QR/link updates per trail; right now the generated token persists when navigating to other trails and shows the same link.
 - [x] When returning to a trail that already had a check-in QR generated, show the existing QR/link instead of clearing the state so organisers don't need to regenerate immediately.
-- [ ] Introduce observability hooks (structured audit events + Prometheus counters) around voucher redemption, manual adjustments, and check-in awards. Emit events via a dedicated logger and expose metrics on a `/metrics` endpoint so operations can trace issues and set up alerts for anomalies.
+- [x] Introduce observability hooks (structured audit events + Prometheus counters) around voucher redemption, manual adjustments, and check-in awards. Emit events via a dedicated logger and expose metrics on a `/metrics` endpoint so operations can trace issues and set up alerts for anomalies.
 - [ ] Optimise senior app data fetching by layering in a client-side cache (React Query/SWR) for points, ledger, and vouchers. Cached reads reduce perceived latency when seniors switch organisations and cut redundant API calls.
-- [ ] Centralise copy and formatting for localisation by extracting strings/date formats in the senior PWA into a translation module. This prepares the interface for multi-language support and keeps regional formatting consistent.
+- [x] Centralise copy and formatting for localisation by extracting strings/date formats in the senior PWA into a translation module. This prepares the interface for multi-language support and keeps regional formatting consistent.
 - [ ] (Optional) Streamline developer onboarding with a devcontainer or compose profile that boots all core services plus seed data. Document the workflow so new contributors can run end-to-end tests locally without manual setup. 
 
 ## UI/UX Suggestions
