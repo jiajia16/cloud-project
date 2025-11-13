@@ -32,8 +32,7 @@ import {
     getTrail,
     getTrailRegistrations,
     deleteTrailActivity,
-    listOwnConfirmedTrails,
-    listOwnRegistrations,
+    listMyOrganiserTrails,
     listTrails,
     listTrailActivities,
     previewInvite,
@@ -114,6 +113,21 @@ const TRAIL_STATUS_LABEL: Record<TrailStatus, string> = {
     closed: "Closed",
     cancelled: "Cancelled",
 };
+
+const TRAIL_STATUS_BADGE: Record<TrailStatus, string> = {
+    draft: "bg-gray-100 text-gray-700",
+    published: "bg-emerald-100 text-emerald-700",
+    closed: "bg-blue-100 text-blue-700",
+    cancelled: "bg-rose-100 text-rose-700",
+};
+
+function describeLocation(value: string | null | undefined) {
+    if (!value) {
+        return "Location TBC";
+    }
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : "Location TBC";
+}
 
 const REGISTRATION_STATUS_LABEL: Record<Registration["status"], string> = {
     pending: "Pending",
@@ -403,7 +417,7 @@ function ManualRegistrationForm({ onSubmit, submitting }: ManualRegistrationProp
 export default function ManageTrailsPage() {
     const { tokens, user } = useAuth();
     const accessToken = tokens?.access_token ?? null;
-    const { organisationId: orgId, activeOrganisation } = useOrganisation();
+    const { organisationId: orgId, activeOrganisation, organisations } = useOrganisation();
     const organiserOrgIds = user?.org_ids ?? [];
     const [trails, setTrails] = useState<Trail[]>([]);
     const [loadingTrails, setLoadingTrails] = useState(false);
@@ -427,6 +441,7 @@ export default function ManageTrailsPage() {
     const [showEditForm, setShowEditForm] = useState(false);
     const [formSubmitting, setFormSubmitting] = useState(false);
     const [selectedTrailDetail, setSelectedTrailDetail] = useState<Trail | null>(null);
+    const [trailDetailReloadToken, setTrailDetailReloadToken] = useState(0);
     const [trailDetailLoading, setTrailDetailLoading] = useState(false);
     const [trailDetailError, setTrailDetailError] = useState<string | null>(null);
     const [lookupUserId, setLookupUserId] = useState("");
@@ -434,8 +449,7 @@ export default function ManageTrailsPage() {
     const [lookupError, setLookupError] = useState<string | null>(null);
     const [lookupResult, setLookupResult] = useState<Registration["status"] | null>(null);
     const [lookupProfile, setLookupProfile] = useState<UserSummary | null>(null);
-    const [myRegistrations, setMyRegistrations] = useState<Registration[]>([]);
-    const [myConfirmedTrails, setMyConfirmedTrails] = useState<Trail[]>([]);
+    const [myOrganiserTrails, setMyOrganiserTrails] = useState<Trail[]>([]);
     const [myDataLoading, setMyDataLoading] = useState(false);
     const [myDataError, setMyDataError] = useState<string | null>(null);
     const [inviteDetails, setInviteDetails] = useState<Trail | null>(null);
@@ -915,6 +929,39 @@ export default function ManageTrailsPage() {
 
     const trailInfo = selectedTrailDetail ?? selectedTrail;
     const trailsById = useMemo(() => new Map(trails.map((trail) => [trail.id, trail])), [trails]);
+    const organisationNameById = useMemo(() => {
+        const map = new Map<string, string>();
+        organisations.forEach((org) => map.set(org.id, org.name));
+        if (activeOrganisation) {
+            map.set(activeOrganisation.id, activeOrganisation.name);
+        }
+        return map;
+    }, [organisations, activeOrganisation]);
+
+    const organiserActivityStats = useMemo(() => {
+        const total = myOrganiserTrails.length;
+        const draft = myOrganiserTrails.filter((trail) => trail.status === "draft").length;
+        const published = myOrganiserTrails.filter((trail) => trail.status === "published").length;
+        const upcoming = myOrganiserTrails.filter((trail) => {
+            const starts = new Date(trail.starts_at).getTime();
+            return Number.isFinite(starts) && starts > Date.now();
+        }).length;
+        return { total, draft, published, upcoming };
+    }, [myOrganiserTrails]);
+
+    const recentOrganiserTrails = useMemo(() => {
+        return [...myOrganiserTrails]
+            .sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())
+            .slice(0, 5);
+    }, [myOrganiserTrails]);
+
+    const handleOpenTrail = useCallback(
+        (trail: Trail) => {
+            setSelectedTrailId(trail.id);
+            setSelectedTrailDetail(trail);
+        },
+        []
+    );
     const checkinLink = useMemo(() => {
         if (!checkinQr) {
             return null;
@@ -955,34 +1002,38 @@ export default function ManageTrailsPage() {
                 return aTime - bTime;
             });
             setTrails(sorted);
+
+            let nextSelectedId: string | null = null;
             setSelectedTrailId((current) => {
-                if (current && sorted.some((trail) => trail.id === current)) {
-                    return current;
-                }
-                return sorted[0]?.id ?? null;
+                const stillExists =
+                    current && sorted.some((trail) => trail.id === current);
+                nextSelectedId = stillExists ? current : sorted[0]?.id ?? null;
+                return nextSelectedId;
             });
+
+            if (
+                nextSelectedId &&
+                nextSelectedId === selectedTrailId
+            ) {
+                setTrailDetailReloadToken((token) => token + 1);
+            }
         } catch (err) {
             setTrailError(getErrorMessage(err));
         } finally {
             setLoadingTrails(false);
         }
-    }, [accessToken, orgId]);
+    }, [accessToken, orgId, selectedTrailId]);
 
     const refreshMyData = useCallback(async () => {
         if (!accessToken) {
-            setMyRegistrations([]);
-            setMyConfirmedTrails([]);
+            setMyOrganiserTrails([]);
             return;
         }
         setMyDataLoading(true);
         setMyDataError(null);
         try {
-            const [registrations, confirmed] = await Promise.all([
-                listOwnRegistrations({ accessToken }),
-                listOwnConfirmedTrails({ accessToken }),
-            ]);
-            setMyRegistrations(registrations);
-            setMyConfirmedTrails(confirmed);
+            const trails = await listMyOrganiserTrails({ accessToken, limit: 50 });
+            setMyOrganiserTrails(trails);
         } catch (err) {
             setMyDataError(getErrorMessage(err));
         } finally {
@@ -999,8 +1050,7 @@ export default function ManageTrailsPage() {
 
     useEffect(() => {
         if (!accessToken) {
-            setMyRegistrations([]);
-            setMyConfirmedTrails([]);
+            setMyOrganiserTrails([]);
             setMyDataError(null);
             setMyDataLoading(false);
             return;
@@ -1037,7 +1087,7 @@ export default function ManageTrailsPage() {
         return () => {
             cancelled = true;
         };
-    }, [accessToken, selectedTrailId]);
+    }, [accessToken, selectedTrailId, trailDetailReloadToken]);
 
     const refreshRegistrations = useCallback(
         async (trailId: string) => {
@@ -2409,51 +2459,74 @@ export default function ManageTrailsPage() {
                     {myDataError ? (
                         <p className="text-sm text-rose-600">{myDataError}</p>
                     ) : null}
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                            <h4 className="text-sm font-semibold text-gray-700">All registrations</h4>
-                            {myRegistrations.length === 0 ? (
-                                <p className="text-xs text-gray-500">No registrations recorded for this organiser.</p>
-                            ) : (
-                                <ul className="space-y-2 text-xs text-gray-700">
-                                    {myRegistrations.map((registration) => {
-                                        const trail = trailsById.get(registration.trail_id ?? "");
-                                        return (
+                    {myDataLoading && myOrganiserTrails.length === 0 ? (
+                        <div className="flex justify-center py-12 text-teal-600">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                        </div>
+                    ) : (
+                        <>
+                            <div className="grid gap-3 md:grid-cols-4">
+                                {[
+                                    { label: "Created trails", value: organiserActivityStats.total },
+                                    { label: "Published", value: organiserActivityStats.published },
+                                    { label: "Drafts", value: organiserActivityStats.draft },
+                                    { label: "Upcoming", value: organiserActivityStats.upcoming },
+                                ].map((stat) => (
+                                    <div key={stat.label} className="rounded-xl bg-gray-50 p-4">
+                                        <p className="text-xs uppercase tracking-wide text-gray-500">{stat.label}</p>
+                                        <p className="mt-1 text-2xl font-semibold text-gray-900">
+                                            {myDataLoading ? "…" : stat.value}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="space-y-2">
+                                <h4 className="text-sm font-semibold text-gray-700">Recently created trails</h4>
+                                {recentOrganiserTrails.length === 0 ? (
+                                    <p className="text-xs text-gray-500">
+                                        {myDataLoading
+                                            ? "Loading your organiser activity…"
+                                            : "You have not created any trails yet."}
+                                    </p>
+                                ) : (
+                                    <ul className="space-y-3">
+                                        {recentOrganiserTrails.map((trail) => (
                                             <li
-                                                key={registration.id}
-                                                className="rounded-md border border-gray-200 bg-white px-3 py-2"
+                                                key={trail.id}
+                                                className="rounded-lg border border-gray-200 bg-white px-3 py-3 shadow-sm"
                                             >
-                                                <div className="font-medium">{trail?.title ?? registration.trail_id}</div>
-                                                <div className="text-gray-500">
-                                                    Status: {REGISTRATION_STATUS_LABEL[registration.status]}
+                                                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                                    <div>
+                                                        <div className="font-semibold text-gray-900">{trail.title}</div>
+                                                        <div className="text-xs text-gray-500">
+                                                            {formatDate(trail.starts_at)} · {describeLocation(trail.location)}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">
+                                                            {organisationNameById.get(trail.org_id) ?? "Organisation"}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-start gap-2 md:items-end">
+                                                        <span
+                                                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${TRAIL_STATUS_BADGE[trail.status]}`}
+                                                        >
+                                                            {TRAIL_STATUS_LABEL[trail.status]}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            className="rounded-md border border-gray-200 px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                                            onClick={() => handleOpenTrail(trail)}
+                                                        >
+                                                            Open trail
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </li>
-                                        );
-                                    })}
-                                </ul>
-                            )}
-                        </div>
-                        <div className="space-y-2">
-                            <h4 className="text-sm font-semibold text-gray-700">Confirmed trails</h4>
-                            {myConfirmedTrails.length === 0 ? (
-                                <p className="text-xs text-gray-500">No confirmed attendance yet.</p>
-                            ) : (
-                                <ul className="space-y-2 text-xs text-gray-700">
-                                    {myConfirmedTrails.map((trail) => (
-                                        <li
-                                            key={trail.id}
-                                            className="rounded-md border border-gray-200 bg-white px-3 py-2"
-                                        >
-                                            <div className="font-medium">{trail.title}</div>
-                                            <div className="text-gray-500">
-                                                {formatDate(trail.starts_at)} · {trail.location ?? "Location TBC"}
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    </div>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </Card>
             </div>
         </div>
