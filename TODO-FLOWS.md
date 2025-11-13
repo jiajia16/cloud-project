@@ -72,7 +72,7 @@ REWARDS & REDEEMPTION
 - [X] on senior - show correctly the rewarded points
 - [X] on org - can create voucher with points costed, code
 - [X] on senior - senior can redeemed and view the code successfully
-- [] on senior - enrich rewards points history to show the trail and activity titles instead of generic "Activity check-in" entries
+- [x] on senior - enrich rewards points history to show the trail and activity titles instead of generic "Activity check-in" entries
 INSIGHTS 
 - [X] can see all the real-time data very nice 
 REPORTS
