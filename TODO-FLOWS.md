@@ -79,3 +79,27 @@ REPORTS
 - [X] not yet implemented the export but it is ok, not the main things (for now can be just for UI)
 
 - [X] on the org, the expired date and time for qr code not accurate
+
+## Suggestions
+- [x] Resolve organiser dashboard hydration mismatch reported by Next.js (`react-dom-client.development.js:5528` surfaces "Hydration failed because the server rendered HTML didn't match the client" when loading `apps/organizer-dashboard/src/app/page.tsx`). Identify non-deterministic SSR output (e.g. `Date.now()`, locale formatting, `Math.random()`, or `window` branches) and move it into client-only effects so the server markup matches the client tree.
+- [ ] Replace organiser dashboard participant identifiers (`530b4905...6d09`) wherever they still appear with a composite of participant ID + name + NRIC so organisers can immediately see who each record belongs to without cross-referencing IDs manually (focus on the remaining UUID-only views such as Trails rosters, Points, Rewards; leave the sections that already include name/NRIC as-is unless there's a cleaner shared component to adopt).
+- [ ] Wire up the "My organiser activity" tile in Manage Trails so it actually lists organiser-created trails/activities (currently renders a placeholder div with no logic). Decide what data should appear and hook it to the Trails service.
+- [ ] Implement the "Export Reports" action in the organiser Reports tab so downloading CSV/XLS summaries works instead of a no-op button.
+- [ ] Remove redundant per-tab organisation dropdowns (Points, Rewards, Insights leaderboards) and ensure the global organisation selector drives those views so the filters remain in sync.
+- [ ] Expand the Overview/Recent Activities widget to include more organiser actions (trail creation, approvals, rewards edits) with clear labels instead of the minimal event list today.
+- [ ] Make the Manage Trails refresh button reload both the trail list and the currently selected trail's detail pane, so organisers see updated metadata immediately after refresh.
+- [x] Fix `/trails/reports/orgs/{org_id}/overview` aggregation so Postgres doesn't reject the query for selecting full `Trail` rows without grouping every column (`csc3104_elderly_platform/trails-activities-svc/app/routers/trails.py` ~245-290). Select only required columns or expand the `GROUP BY`.
+- [ ] Align organiser Insights org selection with backend permissions: either hide orgs the user cannot access or relax `GET /orgs/{id}/stats` to allow admin/service tokens so the UI stops throwing 403 errors when browsing other orgs (`cloud-project/apps/organizer-dashboard/src/app/insights/page.tsx`, `csc3104_elderly_platform/authentication-svc/app/routers/orgs.py`).
+- [ ] Expand automated coverage across services by adding integration tests for points awarding/redemption in `points-vouchers-rules-svc` and UI tests for the senior rewards flow in `apps/senior-pwa`. This guards against regressions whenever the ledger or voucher logic changes and gives confidence before releases.
+- [ ] Introduce observability hooks (structured audit events + Prometheus counters) around voucher redemption, manual adjustments, and check-in awards. Emit events via a dedicated logger and expose metrics on a `/metrics` endpoint so operations can trace issues and set up alerts for anomalies.
+- [ ] Optimise senior app data fetching by layering in a client-side cache (React Query/SWR) for points, ledger, and vouchers. Cached reads reduce perceived latency when seniors switch organisations and cut redundant API calls.
+- [ ] Centralise copy and formatting for localisation by extracting strings/date formats in the senior PWA into a translation module. This prepares the interface for multi-language support and keeps regional formatting consistent.
+- [ ] Streamline developer onboarding with a devcontainer or compose profile that boots all core services plus seed data. Document the workflow so new contributors can run end-to-end tests locally without manual setup.
+
+## UI/UX Suggestions
+- [ ] Improve senior accessibility by shipping a quick settings sheet (font scaling, high-contrast mode, language toggle) and auditing components for WCAG-compliant touch targets and optional audio cues.
+- [ ] Add contextual assistance to the senior PWA—a floating "Need help?" button, inline tips for QR scanning/joining trails, and celebratory animations in the scan-success flow—to reduce anxiety and guide first-time users.
+- [ ] Enrich the senior rewards ledger UI with visual cues (icons, color accents, badges) and a lightweight timeline widget on Home so seniors immediately recognise how they earned points and celebrate milestones.
+- [ ] Upgrade organiser insights with drill-down modals and persistent filters, surfacing at-a-glance stats (top trail, weekly redemptions) on dashboard load so organisers can act without navigating away.
+- [ ] Introduce wizard-style organiser workflows for trail setup and voucher creation, offering real-time previews and suggested point values derived from historical data to speed up repeat tasks.
+- [ ] Build a cross-role notification centre: organisers compose announcements with delivery tracking while seniors receive in-app and email notices with consistent acknowledgement states.

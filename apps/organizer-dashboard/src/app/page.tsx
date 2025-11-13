@@ -36,14 +36,27 @@ const EMPTY_STATS = {
   completionRate: 0,
 };
 
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-SG", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Asia/Singapore",
+});
+
+const NUMBER_FORMATTER = new Intl.NumberFormat("en-SG");
+
 function formatDateTime(value: string) {
   try {
-    return new Intl.DateTimeFormat("en-SG", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(value));
+    return DATE_TIME_FORMATTER.format(new Date(value));
   } catch {
     return value;
+  }
+}
+
+function formatCount(value: number) {
+  try {
+    return NUMBER_FORMATTER.format(value);
+  } catch {
+    return String(value);
   }
 }
 
@@ -162,19 +175,19 @@ export default function DashboardPage() {
   const statCards = [
     {
       label: "Total Participants",
-      value: stats.totalParticipants.toLocaleString(),
+      value: formatCount(stats.totalParticipants),
       description: "Across organisations you manage",
       icon: <Users className="w-6 h-6 text-teal-500 mx-auto" />,
     },
     {
       label: "Active Participants",
-      value: stats.activeParticipants.toLocaleString(),
+      value: formatCount(stats.activeParticipants),
       description: "Assigned to at least one organisation",
       icon: <Activity className="w-6 h-6 text-teal-500 mx-auto" />,
     },
     {
       label: "Total Activities",
-      value: stats.totalActivities.toLocaleString(),
+      value: formatCount(stats.totalActivities),
       description: "Draft, published, and closed trails",
       icon: <Target className="w-6 h-6 text-teal-500 mx-auto" />,
     },

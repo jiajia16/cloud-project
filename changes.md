@@ -54,3 +54,4 @@
 - Restored separate Points and Rewards tabs so ledger management and voucher catalogues live on dedicated pages (`apps/organizer-dashboard/src/app/layout.tsx`, `src/app/points/page.tsx`, `src/app/rewards/page.tsx`).
 - Documented why per-trail reward overrides are unavailable today and what backend work is required before implementing them (`docs/backend-support.md`).
 - Organizer dashboard Insights now shows reporting cards (membership snapshot, attendance trends, trail overview, and points activity) powered by the new backend reporting endpoints (`apps/organizer-dashboard/src/app/insights/page.tsx`, `src/services/auth.ts`, `src/services/leaderboard.ts`, `src/services/points.ts`, `src/services/trails.ts`).
+- Organizer overview page now uses deterministic date/number formatters so SSR markup matches the client tree, eliminating the hydration mismatch error (`apps/organizer-dashboard/src/app/page.tsx`).
