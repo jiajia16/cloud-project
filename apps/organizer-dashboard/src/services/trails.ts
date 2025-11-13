@@ -8,6 +8,7 @@ export type TrailStatus = "draft" | "published" | "closed" | "cancelled";
 export type Trail = {
   id: string;
   org_id: string;
+  created_by?: string;
   title: string;
   description: string | null;
   starts_at: string;
@@ -574,6 +575,26 @@ export async function listOwnConfirmedTrails({
     }
   );
 
+  return handleResponse<Trail[]>(response);
+}
+
+export async function listMyOrganiserTrails({
+  accessToken,
+  signal,
+  limit = 20,
+}: FetchOptions & { limit?: number }) {
+  const qs = buildQuery({ limit });
+  const response = await fetch(
+    TRAILS_BASE_URL + "/users/me/organiser-trails" + qs,
+    {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer " + accessToken,
+      },
+      credentials: "include",
+      signal,
+    }
+  );
   return handleResponse<Trail[]>(response);
 }
 
