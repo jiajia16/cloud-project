@@ -1,84 +1,96 @@
-import React from "react";
+import React, { useCallback, useMemo } from "react";
 import Layout from "../components/Layout.jsx";
 import { Card, Button, SectionTitle } from "@silvertrails/ui";
+import { useLocale } from "../contexts/LocaleContext.jsx";
+import { t } from "../i18n/index.js";
 
 export default function Social() {
-    const invite = () => {
-        const link = window.location.origin + "/login?ref=friend";
-        navigator.clipboard?.writeText(link);
-        alert("Invite link copied! Share with family or friends.");
-    };
+    const { locale } = useLocale();
+
+    const inviteMessages = useMemo(
+        () => ({
+            title: t("social.invite.title", {}, { locale }),
+            subtitle: t("social.invite.subtitle", {}, { locale }),
+            cta: t("social.invite.cta", {}, { locale }),
+        }),
+        [locale]
+    );
+
+    const groupEntries = useMemo(() => t("social.group.entries", {}, { locale }), [locale]);
+    const groupTitle = useMemo(() => t("social.group.title", {}, { locale }), [locale]);
+
+    const messageBoard = useMemo(
+        () => ({
+            title: t("social.messageBoard.title", {}, { locale }),
+            cta: t("social.messageBoard.cta", {}, { locale }),
+            entries: t("social.messageBoard.entries", {}, { locale }),
+        }),
+        [locale]
+    );
+
+    const handleInvite = useCallback(async () => {
+        const link = `${window.location.origin}/login?ref=friend`;
+        try {
+            if (navigator?.clipboard?.writeText) {
+                await navigator.clipboard.writeText(link);
+                alert(t("social.invite.copied", {}, { locale }));
+            } else {
+                throw new Error("clipboard_unavailable");
+            }
+        } catch (err) {
+            alert(t("social.invite.copyFallback", { link }, { locale }));
+        }
+    }, [locale]);
 
     return (
-        <Layout title="Community">
+        <Layout title={t("social.pageTitle")}>
             <Card className="mb-4">
-                <SectionTitle title="Invite a Friend" subtitle="Join activities together for bonus points" />
-                <Button onClick={invite}>Share Invite Link</Button>
+                <SectionTitle title={inviteMessages.title} subtitle={inviteMessages.subtitle} />
+                <Button onClick={handleInvite}>{inviteMessages.cta}</Button>
             </Card>
 
-            <SectionTitle title="My Group" />
+            <SectionTitle title={groupTitle} />
             <Card className="mb-4">
                 <ul className="space-y-2">
-                    {["Auntie Mei", "Uncle Lim", "Mdm Tan"].map(n => (
-                        <li key={n} className="flex items-center justify-between">
-                            <span className="font-medium">{n}</span>
-                            <span className="text-sm text-teal-700 font-semibold">+10 pts today</span>
-                        </li>
-                    ))}
+                    {Array.isArray(groupEntries) &&
+                        groupEntries.map((entry) => (
+                            <li key={entry.name} className="flex items-center justify-between">
+                                <span className="font-medium">{entry.name}</span>
+                                <span className="text-sm text-teal-700 font-semibold">{entry.points}</span>
+                            </li>
+                        ))}
                 </ul>
             </Card>
 
-            {/* Message Board Section */}
-            <SectionTitle title="Message Board" />
+            <SectionTitle title={messageBoard.title} />
 
             <Card className="p-4">
-                {/* Header with button */}
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">Message Board</h3>
+                    <h3 className="text-lg font-semibold text-gray-800">{messageBoard.title}</h3>
                     <button className="bg-teal-400 hover:bg-cyan-400 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition">
-                        💬 Send Message
+                        💬 {messageBoard.cta}
                     </button>
                 </div>
 
-                {/* Message List */}
                 <div className="space-y-3">
-                    {[
-                        {
-                            name: "Uncle Lim",
-                            time: "2 hours ago",
-                            message: "Great job on the Tai Chi class! 👍",
-                            avatar: "🧓",
-                        },
-                        {
-                            name: "Auntie Chen",
-                            time: "1 day ago",
-                            message: "Keep it up everyone! 🖤",
-                            avatar: "👩‍🦳",
-                        },
-                        {
-                            name: "David (Son)",
-                            time: "2 days ago",
-                            message: "So proud of you Mom! 🎉",
-                            avatar: "👨‍🦱",
-                        },
-                    ].map((m, i) => (
-                        <div
-                            key={i}
-                            className="flex items-start gap-3 p-3 bg-teal-50 rounded-xl shadow-sm"
-                        >
-                            <div className="text-3xl">{m.avatar}</div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-gray-800">{m.name}</span>
-                                    <span className="text-gray-500 text-sm">{m.time}</span>
+                    {Array.isArray(messageBoard.entries) &&
+                        messageBoard.entries.map((message, index) => (
+                            <div
+                                key={`${message.name}-${index}`}
+                                className="flex items-start gap-3 p-3 bg-teal-50 rounded-xl shadow-sm"
+                            >
+                                <div className="text-3xl">{message.avatar}</div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-gray-800">{message.name}</span>
+                                        <span className="text-gray-500 text-sm">{message.time}</span>
+                                    </div>
+                                    <p className="text-gray-700 mt-1">{message.message}</p>
                                 </div>
-                                <p className="text-gray-700 mt-1">{m.message}</p>
                             </div>
-                        </div>
-                    ))}
+                        ))}
                 </div>
             </Card>
-
         </Layout>
     );
 }

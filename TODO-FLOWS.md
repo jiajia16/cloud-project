@@ -96,7 +96,7 @@ REPORTS
 - [x] Introduce observability hooks (structured audit events + Prometheus counters) around voucher redemption, manual adjustments, and check-in awards. Emit events via a dedicated logger and expose metrics on a `/metrics` endpoint so operations can trace issues and set up alerts for anomalies.
 - [ ] Optimise senior app data fetching by layering in a client-side cache (React Query/SWR) for points, ledger, and vouchers. Cached reads reduce perceived latency when seniors switch organisations and cut redundant API calls.
 - [x] Centralise copy and formatting for localisation by extracting strings/date formats in the senior PWA into a translation module. This prepares the interface for multi-language support (English, Mandarin, Malay, Tamil) and keeps regional formatting consistent.
-- [ ] Implement full senior PWA localisation coverage for English, Mandarin, Malay, and Tamil using the new translation module, including language switching UI and translated copy across primary screens. (Home, Join, Scan, auth flows, Rewards, MyTrails, and Leaderboard translated; Social still needs copy extraction.)
+- [x] Implement full senior PWA localisation coverage for English, Mandarin, Malay, and Tamil using the new translation module, including language switching UI and translated copy across primary screens. (Home, Join, Scan, auth flows, Rewards, MyTrails, Leaderboard, and Social now fully translated.)
 - [ ] (Optional) Streamline developer onboarding with a devcontainer or compose profile that boots all core services plus seed data. Document the workflow so new contributors can run end-to-end tests locally without manual setup. 
 
 ## UI/UX Suggestions
@@ -105,7 +105,7 @@ REPORTS
 - [x] Localise Join and Scan flows next, extracting QR help text and error handling into the dictionaries to keep guidance consistent across languages. (Join + Scan pages now pull all copy from i18n with EN/中文/BM/TA coverage.)
 - [x] Localise MyTrails and Rewards pages, including ledger/summary copy and any validation messages so seniors see native-language content while browsing or redeeming.
 - [x] Localise Leaderboard screen with translation keys for headings, tabs, and empty states, ensuring long Tamil strings still fit responsive layouts.
-- [ ] Localise Social screen with translation keys for headings, actions, and empty states, ensuring long Tamil strings still fit responsive layouts.
+- [x] Localise Social screen with translation keys for headings, actions, and empty states, ensuring long Tamil strings still fit responsive layouts.
 - [ ] Improve senior accessibility by shipping a quick settings sheet (font scaling, high-contrast mode, language toggle) and auditing components for WCAG-compliant touch targets and optional audio cues.
 - [ ] Add contextual assistance to the senior PWA—a floating "Need help?" button, inline tips for QR scanning/joining trails, and celebratory animations in the scan-success flow—to reduce anxiety and guide first-time users.
 - [ ] Enrich the senior rewards ledger UI with visual cues (icons, color accents, badges) and a lightweight timeline widget on Home so seniors immediately recognise how they earned points and celebrate milestones.

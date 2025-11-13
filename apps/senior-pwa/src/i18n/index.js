@@ -310,6 +310,48 @@ const enMessages = {
       orgLoad: "Unable to load organisation leaderboard.",
     },
   },
+  social: {
+    pageTitle: "Community",
+    invite: {
+      title: "Invite a Friend",
+      subtitle: "Join activities together for bonus points",
+      cta: "Share Invite Link",
+      copied: "Invite link copied! Share it with family or friends.",
+      copyFallback: "Unable to copy automatically. Share this link manually: {link}",
+    },
+    group: {
+      title: "My Group",
+      entries: [
+        { name: "Auntie Mei", points: "+10 pts today" },
+        { name: "Uncle Lim", points: "+8 pts today" },
+        { name: "Mdm Tan", points: "+6 pts today" },
+      ],
+    },
+    messageBoard: {
+      title: "Message Board",
+      cta: "Send Message",
+      entries: [
+        {
+          name: "Uncle Lim",
+          time: "2 hours ago",
+          message: "Great job on the Tai Chi class! 👍",
+          avatar: "🧓",
+        },
+        {
+          name: "Auntie Chen",
+          time: "1 day ago",
+          message: "Keep it up everyone! 🖤",
+          avatar: "👩‍🦳",
+        },
+        {
+          name: "David (Son)",
+          time: "2 days ago",
+          message: "So proud of you Mom! 🎉",
+          avatar: "👨‍🦱",
+        },
+      ],
+    },
+  },
   rewards: {
     pageTitle: "Rewards",
     onboarding: {
@@ -905,6 +947,48 @@ const zhMessages = {
       orgLoad: "无法载入组织排行榜。",
     },
   },
+  social: {
+    pageTitle: "社区",
+    invite: {
+      title: "邀请朋友",
+      subtitle: "一起参加活动可获得额外积分",
+      cta: "分享邀请链接",
+      copied: "邀请链接已复制！分享给家人或朋友吧。",
+      copyFallback: "无法自动复制，请手动分享此链接：{link}",
+    },
+    group: {
+      title: "我的小组",
+      entries: [
+        { name: "梅姨", points: "今日 +10 分" },
+        { name: "林叔", points: "今日 +8 分" },
+        { name: "陈太太", points: "今日 +6 分" },
+      ],
+    },
+    messageBoard: {
+      title: "留言板",
+      cta: "发送讯息",
+      entries: [
+        {
+          name: "林叔",
+          time: "2 小时前",
+          message: "太极课真棒！👍",
+          avatar: "🧓",
+        },
+        {
+          name: "陈姨",
+          time: "1 天前",
+          message: "大家继续加油！🖤",
+          avatar: "👩‍🦳",
+        },
+        {
+          name: "David（儿子）",
+          time: "2 天前",
+          message: "妈妈我为你感到骄傲！🎉",
+          avatar: "👨‍🦱",
+        },
+      ],
+    },
+  },
   myTrails: {
     pageTitle: "我的行程",
     hero: {
@@ -1368,6 +1452,49 @@ const msMessages = {
     errors: {
       systemLoad: "Tidak dapat memuatkan papan pendahulu komuniti.",
       orgLoad: "Tidak dapat memuatkan papan pendahulu organisasi.",
+    },
+  },
+  social: {
+    pageTitle: "Komuniti",
+    invite: {
+      title: "Jemput Rakan",
+      subtitle: "Sertai aktiviti bersama untuk mata bonus",
+      cta: "Kongsi pautan jemputan",
+      copied: "Pautan jemputan disalin! Kongsi dengan keluarga atau rakan.",
+      copyFallback:
+        "Tidak dapat salin secara automatik. Kongsi pautan ini secara manual: {link}",
+    },
+    group: {
+      title: "Kumpulan Saya",
+      entries: [
+        { name: "Auntie Mei", points: "+10 mata hari ini" },
+        { name: "Uncle Lim", points: "+8 mata hari ini" },
+        { name: "Mdm Tan", points: "+6 mata hari ini" },
+      ],
+    },
+    messageBoard: {
+      title: "Papan mesej",
+      cta: "Hantar mesej",
+      entries: [
+        {
+          name: "Uncle Lim",
+          time: "2 jam lalu",
+          message: "Kelas Tai Chi tadi hebat! 👍",
+          avatar: "🧓",
+        },
+        {
+          name: "Auntie Chen",
+          time: "1 hari lalu",
+          message: "Teruskan semua! 🖤",
+          avatar: "👩‍🦳",
+        },
+        {
+          name: "David (Anak)",
+          time: "2 hari lalu",
+          message: "Saya bangga dengan ibu! 🎉",
+          avatar: "👨‍🦱",
+        },
+      ],
     },
   },
   myTrails: {
@@ -1835,6 +1962,50 @@ const taMessages = {
     errors: {
       systemLoad: "சமூக முன்னணியை ஏற்ற முடியவில்லை.",
       orgLoad: "அமைப்புக் முன்னணியை ஏற்ற முடியவில்லை.",
+    },
+  },
+  social: {
+    pageTitle: "சமூகம்",
+    invite: {
+      title: "ஒரு நண்பரை அழைக்கவும்",
+      subtitle: "செயல்பாடுகளில் ஒன்றாக கலந்து கூடுதல் பாயிண்ட்கள் பெறுங்கள்",
+      cta: "அழைப்புக் இணைப்பை பகிரவும்",
+      copied:
+        "அழைப்புக் இணைப்பு நகலெடுக்கப்பட்டது! குடும்பத்தினருக்கும் நண்பர்களுக்கும் பகிருங்கள்.",
+      copyFallback:
+        "தானாக நகலெடுக்க முடியவில்லை. இந்த இணைப்பைப் கைமுறையாக பகிரவும்: {link}",
+    },
+    group: {
+      title: "என் குழு",
+      entries: [
+        { name: "அண்டி மேய்", points: "இன்று +10 பாயிண்ட்கள்" },
+        { name: "அங்கிள் லிம்", points: "இன்று +8 பாயிண்ட்கள்" },
+        { name: "மடம் டான்", points: "இன்று +6 பாயிண்ட்கள்" },
+      ],
+    },
+    messageBoard: {
+      title: "செய்திப் பலகை",
+      cta: "செய்தி அனுப்பவும்",
+      entries: [
+        {
+          name: "அங்கிள் லிம்",
+          time: "2 மணி நேரம் முன்",
+          message: "தாய் சி வகுப்பு அருமை! 👍",
+          avatar: "🧓",
+        },
+        {
+          name: "அண்டி சென்",
+          time: "1 நாள் முன்",
+          message: "அனைவரும் தொடர்ந்து முயற்சியுங்கள்! 🖤",
+          avatar: "👩‍🦳",
+        },
+        {
+          name: "David (மகன்)",
+          time: "2 நாட்கள் முன்",
+          message: "அம்மா, உங்களைப் பற்றி பெருமை! 🎉",
+          avatar: "👨‍🦱",
+        },
+      ],
     },
   },
   myTrails: {
