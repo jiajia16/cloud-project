@@ -18,6 +18,7 @@ import QRCode from "qrcode";
 import { useAuth } from "../../context/AuthContext";
 import { useOrganisation } from "../../context/OrganisationContext";
 import { listParticipants, resolveParticipantUserId, type UserSummary } from "../../services/auth";
+import { formatParticipantIdentity, resolveParticipantIdentity } from "../../utils/participants";
 import {
     acceptInvite,
     approveRegistration,
@@ -902,16 +903,11 @@ export default function ManageTrailsPage() {
     }, []);
 
     const describeParticipant = useCallback(
-        (userId: string) => {
-            const profile = participantDirectory[userId];
-            if (!profile) {
-                return userId;
-            }
-            if (profile.nric) {
-                return `${profile.name} (${profile.nric})`;
-            }
-            return profile.name;
-        },
+        (userId: string) => formatParticipantIdentity(participantDirectory[userId], userId),
+        [participantDirectory]
+    );
+    const participantIdentityOf = useCallback(
+        (userId: string) => resolveParticipantIdentity(participantDirectory[userId], userId),
         [participantDirectory]
     );
 
@@ -2196,29 +2192,21 @@ export default function ManageTrailsPage() {
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
                                                 {roster.map((entry) => {
-                                                    const participant = participantDirectory[entry.user_id];
+                                                    const identity = participantIdentityOf(entry.user_id);
                                                     return (
                                                         <tr key={entry.id}>
                                                             <td className="px-3 py-2 text-gray-800">
-                                                                {participant ? (
-                                                                    <>
-                                                                        <div className="font-semibold">
-                                                                            {participant.name}
-                                                                        </div>
-                                                                        {participant.nric ? (
-                                                                            <div className="text-xs text-gray-600">
-                                                                                {participant.nric}
-                                                                            </div>
-                                                                        ) : null}
-                                                                        <div className="text-[11px] font-mono text-gray-400 break-all">
-                                                                            {entry.user_id}
-                                                                        </div>
-                                                                    </>
-                                                                ) : (
-                                                                    <div className="font-mono text-xs text-gray-600 break-all">
-                                                                        {entry.user_id}
+                                                                <div className="font-semibold text-gray-900">
+                                                                    {identity.name}
+                                                                </div>
+                                                                {identity.nric ? (
+                                                                    <div className="text-xs text-gray-500">
+                                                                        {identity.nric}
                                                                     </div>
-                                                                )}
+                                                                ) : null}
+                                                                <div className="text-[11px] font-mono text-gray-400 break-all">
+                                                                    {identity.shortId}
+                                                                </div>
                                                             </td>
                                                             <td className="px-3 py-2 text-xs text-gray-600 uppercase">
                                                                 {entry.method}
@@ -2310,29 +2298,21 @@ export default function ManageTrailsPage() {
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
                                                 {registrations.map((registration) => {
-                                                    const participant = participantDirectory[registration.user_id];
+                                                    const identity = participantIdentityOf(registration.user_id);
                                                     return (
                                                         <tr key={registration.id} className="align-top">
                                                             <td className="px-3 py-2 text-gray-800">
-                                                                {participant ? (
-                                                                    <>
-                                                                        <div className="font-semibold">
-                                                                            {participant.name}
-                                                                        </div>
-                                                                        {participant.nric ? (
-                                                                            <div className="text-xs text-gray-600">
-                                                                                {participant.nric}
-                                                                            </div>
-                                                                        ) : null}
-                                                                        <div className="text-[11px] font-mono text-gray-400 break-all">
-                                                                            {registration.user_id}
-                                                                        </div>
-                                                                    </>
-                                                                ) : (
-                                                                    <div className="font-mono text-xs text-gray-600 break-all">
-                                                                        {registration.user_id}
+                                                                <div className="font-semibold text-gray-900">
+                                                                    {identity.name}
+                                                                </div>
+                                                                {identity.nric ? (
+                                                                    <div className="text-xs text-gray-500">
+                                                                        {identity.nric}
                                                                     </div>
-                                                                )}
+                                                                ) : null}
+                                                                <div className="text-[11px] font-mono text-gray-400 break-all">
+                                                                    {identity.shortId}
+                                                                </div>
                                                             </td>
                                                             <td className="px-3 py-2">
                                                                 <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">

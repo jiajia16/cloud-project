@@ -12,6 +12,7 @@ import {
     type OrganisationSummary,
     type UserSummary,
 } from "../../services/auth";
+import { resolveParticipantIdentity } from "../../utils/participants";
 
 type AlertState = { type: "success" | "error"; message: string } | null;
 
@@ -226,8 +227,20 @@ export default function ParticipantsPage() {
                                 return (
                                     <tr key={participant.id} className="align-top">
                                         <td className="px-3 py-3 text-gray-800">
-                                            <div className="font-semibold">{participant.name}</div>
-                                            <div className="text-xs text-gray-500">{participant.nric}</div>
+                                            {(() => {
+                                                const identity = resolveParticipantIdentity(participant, participant.id);
+                                                return (
+                                                    <>
+                                                        <div className="font-semibold text-gray-900">{identity.name}</div>
+                                                        {identity.nric ? (
+                                                            <div className="text-xs text-gray-500">{identity.nric}</div>
+                                                        ) : null}
+                                                        <div className="text-[11px] font-mono text-gray-400">
+                                                            {identity.shortId}
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="px-3 py-3">
                                             {participant.org_ids.length === 0 ? (

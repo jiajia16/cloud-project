@@ -20,6 +20,7 @@ import {
   type OrgBalance,
   type OrgLedgerEntry,
 } from "../../services/points";
+import { resolveParticipantIdentity } from "../../utils/participants";
 
 type AlertState = { type: "success" | "error"; message: string } | null;
 
@@ -105,13 +106,16 @@ export default function PointsPage() {
     void fetchPoints();
   }, [fetchPoints]);
 
-  const participantLabel = useMemo(() => {
-    const map = new Map<string, string>();
-    participants.forEach((participant) =>
-      map.set(participant.id, participant.name ?? participant.nric ?? participant.id)
-    );
+  const participantDirectory = useMemo(() => {
+    const map = new Map<string, UserSummary>();
+    participants.forEach((participant) => map.set(participant.id, participant));
     return map;
   }, [participants]);
+
+  const participantIdentityOf = useCallback(
+    (userId: string) => resolveParticipantIdentity(participantDirectory.get(userId), userId),
+    [participantDirectory]
+  );
 
   const handleAdjust = useCallback(
     async (event: FormEvent) => {
@@ -332,17 +336,23 @@ export default function PointsPage() {
                 </tr>
               </thead>
               <tbody>
-                {balances.map((entry) => (
-                  <tr key={entry.user_id} className="border-t">
-                    <td className="px-3 py-2 text-gray-700">
-                      {participantLabel.get(entry.user_id) ??
-                        entry.user_id.slice(0, 8).toUpperCase()}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono text-gray-900">
-                      {entry.balance.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
+                {balances.map((entry) => {
+                  const identity = participantIdentityOf(entry.user_id);
+                  return (
+                    <tr key={entry.user_id} className="border-t">
+                      <td className="px-3 py-2 text-gray-700">
+                        <div className="font-semibold text-gray-900">{identity.name}</div>
+                        {identity.nric ? (
+                          <div className="text-xs text-gray-500">{identity.nric}</div>
+                        ) : null}
+                        <div className="text-[11px] font-mono text-gray-400">{identity.shortId}</div>
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-gray-900">
+                        {entry.balance.toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -361,6 +371,9 @@ export default function PointsPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">
+                    Participant
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">
                     Reason
                   </th>
                   <th className="px-3 py-2 text-right font-medium text-gray-600">
@@ -369,23 +382,31 @@ export default function PointsPage() {
                 </tr>
               </thead>
               <tbody>
-                {ledger.map((entry) => (
-                  <tr key={entry.id} className="border-t">
-                    <td className="px-3 py-2 text-gray-700">
-                      {entry.reason}
-                    </td>
-                    <td
-                      className={`px-3 py-2 text-right font-mono ${
-                        entry.delta >= 0
-                          ? "text-emerald-600"
-                          : "text-rose-600"
-                      }`}
-                    >
-                      {entry.delta >= 0 ? "+" : ""}
-                      {entry.delta}
-                    </td>
-                  </tr>
-                ))}
+                {ledger.map((entry) => {
+                  const identity = participantIdentityOf(entry.user_id);
+                  return (
+                    <tr key={entry.id} className="border-t">
+                      <td className="px-3 py-2 text-gray-700">
+                        <div className="font-semibold text-gray-900">{identity.name}</div>
+                        {identity.nric ? (
+                          <div className="text-xs text-gray-500">{identity.nric}</div>
+                        ) : null}
+                        <div className="text-[11px] font-mono text-gray-400">{identity.shortId}</div>
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">
+                        {entry.reason}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right font-mono ${
+                          entry.delta >= 0 ? "text-emerald-600" : "text-rose-600"
+                        }`}
+                      >
+                        {entry.delta >= 0 ? "+" : ""}
+                        {entry.delta}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -400,4 +421,3 @@ export default function PointsPage() {
     </div>
   );
 }
-

@@ -16,9 +16,11 @@ import {
 import { listTrails, getTrailsOverview, type Trail, type TrailsOverview } from "../../services/trails";
 import {
   listOrganisations,
+  listParticipants,
   getOrganisationStats,
   type OrganisationSummary,
   type OrganisationStats,
+  type UserSummary,
 } from "../../services/auth";
 import {
   getOrgPointsSummary,
@@ -26,6 +28,7 @@ import {
   type PointsSummary,
   type RedemptionItem,
 } from "../../services/points";
+import { resolveParticipantIdentity } from "../../utils/participants";
 
 type LoadingState = {
   loading: boolean;
@@ -72,6 +75,7 @@ export default function InsightsPage() {
   const [attendanceRows, setAttendanceRows] = useState<AttendanceEntry[]>([]);
   const [trails, setTrails] = useState<Trail[]>([]);
   const [organisations, setOrganisations] = useState<OrganisationSummary[]>([]);
+  const [participants, setParticipants] = useState<UserSummary[]>([]);
   const [orgStats, setOrgStats] = useState<OrganisationStats | null>(null);
   const [trailsOverviewData, setTrailsOverviewData] = useState<TrailsOverview | null>(null);
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
@@ -98,6 +102,7 @@ export default function InsightsPage() {
   useEffect(() => {
     if (!accessToken) {
       setOrganisations([]);
+      setParticipants([]);
       return;
     }
     const controller = new AbortController();
@@ -108,6 +113,15 @@ export default function InsightsPage() {
       .catch(() => {
         if (!controller.signal.aborted) {
           setOrganisations([]);
+        }
+      });
+    listParticipants({ accessToken, signal: controller.signal })
+      .then((items) => {
+        setParticipants(Array.isArray(items) ? items : []);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setParticipants([]);
         }
       });
     return () => controller.abort();
@@ -124,6 +138,33 @@ export default function InsightsPage() {
     });
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [organisations, orgIds]);
+
+  const participantDirectory = useMemo(() => {
+    const map = new Map<string, UserSummary>();
+    participants.forEach((participant) => map.set(participant.id, participant));
+    return map;
+  }, [participants]);
+
+  const participantIdentityOf = useCallback(
+    (userId: string) => resolveParticipantIdentity(participantDirectory.get(userId), userId),
+    [participantDirectory]
+  );
+
+  const renderParticipantLabel = useCallback(
+    (userId: string) => {
+      const identity = participantIdentityOf(userId);
+      return (
+        <div className="text-sm text-gray-800">
+          <div className="font-semibold text-gray-900">{identity.name}</div>
+          {identity.nric ? (
+            <div className="text-xs text-gray-500">{identity.nric}</div>
+          ) : null}
+          <div className="text-[11px] font-mono text-gray-400">{identity.shortId}</div>
+        </div>
+      );
+    },
+    [participantIdentityOf]
+  );
 
   const selectedOrgMeta = useMemo(() => {
     if (!selectedOrgId) return null;
@@ -678,8 +719,10 @@ export default function InsightsPage() {
                   <ul className="mt-2 space-y-2 text-sm text-gray-700">
                     {topEarners.map((row) => (
                       <li key={row.user_id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-                        <span className="font-mono text-xs text-gray-600">{formatUserId(row.user_id)}</span>
-                        <span className="font-semibold text-gray-900">{numberFormatter.format(row.total_awarded)}</span>
+                        <div>{renderParticipantLabel(row.user_id)}</div>
+                        <span className="font-semibold text-gray-900">
+                          {numberFormatter.format(row.total_awarded)}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -707,7 +750,7 @@ export default function InsightsPage() {
                         {recentRedemptions.map((item) => (
                           <tr key={item.id}>
                             <td className="py-2 text-gray-800">{item.voucher_name ?? item.voucher_code}</td>
-                            <td className="py-2 font-mono text-xs text-gray-600">{formatUserId(item.user_id)}</td>
+                            <td className="py-2">{renderParticipantLabel(item.user_id)}</td>
                             <td className="py-2 text-gray-500">{formatDateTime(item.redeemed_at)}</td>
                           </tr>
                         ))}
@@ -787,7 +830,7 @@ export default function InsightsPage() {
                 {orgRows.map((row) => (
                   <tr key={`${row.user_id}-${row.rank}`} className="hover:bg-gray-50">
                     <td className="py-2 font-medium text-gray-800">#{row.rank}</td>
-                    <td className="py-2 font-mono text-sm text-gray-700">{formatUserId(row.user_id)}</td>
+                    <td className="py-2">{renderParticipantLabel(row.user_id)}</td>
                     <td className="py-2 text-right font-semibold text-gray-800">{row.score}</td>
                   </tr>
                 ))}
@@ -868,7 +911,7 @@ export default function InsightsPage() {
               <tbody className="divide-y divide-gray-100">
                 {attendanceRows.map((entry) => (
                   <tr key={`${entry.user_id}-${entry.checked_at}`}>
-                    <td className="py-2 font-mono text-sm text-gray-700">{formatUserId(entry.user_id)}</td>
+                    <td className="py-2">{renderParticipantLabel(entry.user_id)}</td>
                     <td className="py-2 text-gray-700">{entry.status ?? "checked_in"}</td>
                     <td className="py-2 text-gray-500">{formatDateTime(entry.checked_at)}</td>
                   </tr>
