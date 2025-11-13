@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, Button } from "@silvertrails/ui";
 import {
     Activity,
@@ -90,7 +90,7 @@ function makeId() {
 function disposeObjectUrl(url: string | null | undefined) {
     if (url && url.startsWith("blob:")) {
         try {
-            disposeObjectUrl(url);
+            URL.revokeObjectURL(url);
         } catch { }
     }
 }
@@ -459,12 +459,41 @@ export default function ManageTrailsPage() {
     const [inviteRegisterError, setInviteRegisterError] = useState<string | null>(null);
     const [inviteRegisterResult, setInviteRegisterResult] = useState<Registration | null>(null);
     const [inviteRegisterLoading, setInviteRegisterLoading] = useState(false);
-    const [checkinQr, setCheckinQr] = useState<TrailQrToken | null>(null);
-    const [checkinQrError, setCheckinQrError] = useState<string | null>(null);
-    const [checkinQrLoading, setCheckinQrLoading] = useState(false);
-    const [checkinQrImageUrl, setCheckinQrImageUrl] = useState<string | null>(null);
-    const [checkinQrImageLoading, setCheckinQrImageLoading] = useState(false);
-    const [checkinQrImageError, setCheckinQrImageError] = useState<string | null>(null);
+    const [checkinQrByTrail, setCheckinQrByTrail] = useState<Record<string, TrailQrToken | null>>({});
+    const [checkinQrErrorByTrail, setCheckinQrErrorByTrail] = useState<Record<string, string | null>>({});
+    const [checkinQrImageByTrail, setCheckinQrImageByTrail] = useState<Record<string, string | null>>({});
+    const [checkinQrImageErrorByTrail, setCheckinQrImageErrorByTrail] = useState<Record<string, string | null>>({});
+    const [checkinQrLoadingTrailId, setCheckinQrLoadingTrailId] = useState<string | null>(null);
+    const [checkinQrImageLoadingTrailId, setCheckinQrImageLoadingTrailId] = useState<string | null>(null);
+    const checkinQrImageCacheRef = useRef<Record<string, string | null>>({});
+
+    const setTrailQrImage = useCallback(
+        (trailId: string, value: string | null) => {
+            setCheckinQrImageByTrail((prev) => {
+                const current = prev[trailId] ?? null;
+                if (current === value) {
+                    return prev;
+                }
+                if (current) {
+                    disposeObjectUrl(current);
+                }
+                const next = { ...prev, [trailId]: value };
+                checkinQrImageCacheRef.current = next;
+                return next;
+            });
+        },
+        []
+    );
+
+    useEffect(() => {
+        checkinQrImageCacheRef.current = checkinQrImageByTrail;
+    }, [checkinQrImageByTrail]);
+
+    useEffect(() => {
+        return () => {
+            Object.values(checkinQrImageCacheRef.current).forEach((url) => disposeObjectUrl(url));
+        };
+    }, []);
     const [roster, setRoster] = useState<Checkin[]>([]);
     const [rosterLoading, setRosterLoading] = useState(false);
     const [rosterError, setRosterError] = useState<string | null>(null);
@@ -745,6 +774,18 @@ export default function ManageTrailsPage() {
     const selectedTrail = useMemo(
         () => trails.find((trail) => trail.id === selectedTrailId) ?? null,
         [selectedTrailId, trails]
+    );
+    const checkinQr = selectedTrailId ? checkinQrByTrail[selectedTrailId] ?? null : null;
+    const checkinQrError = selectedTrailId ? checkinQrErrorByTrail[selectedTrailId] ?? null : null;
+    const checkinQrImageUrl = selectedTrailId ? checkinQrImageByTrail[selectedTrailId] ?? null : null;
+    const checkinQrImageError = selectedTrailId
+        ? checkinQrImageErrorByTrail[selectedTrailId] ?? null
+        : null;
+    const checkinQrLoading = Boolean(
+        selectedTrailId && checkinQrLoadingTrailId === selectedTrailId
+    );
+    const checkinQrImageLoading = Boolean(
+        selectedTrailId && checkinQrImageLoadingTrailId === selectedTrailId
     );
     const generateActivityQr = useCallback(
         async (id: string) => {
@@ -1262,26 +1303,24 @@ export default function ManageTrailsPage() {
             setAlert({ type: "error", message: "Select a trail first." });
             return;
         }
-        setCheckinQrLoading(true);
-        setCheckinQrError(null);
-        if (checkinQrImageUrl) {
-            URL.revokeObjectURL(checkinQrImageUrl);
-        }
-        setCheckinQrImageUrl(null);
-        setCheckinQrImageError(null);
-        setCheckinQrImageLoading(false);
+        const trailId = selectedTrail.id;
+        setCheckinQrLoadingTrailId(trailId);
+        setCheckinQrErrorByTrail((prev) => ({ ...prev, [trailId]: null }));
+        setCheckinQrImageErrorByTrail((prev) => ({ ...prev, [trailId]: null }));
+        setTrailQrImage(trailId, null);
+        setCheckinQrImageLoadingTrailId((current) => (current === trailId ? null : current));
         try {
-            const qr = await createTrailQr({ accessToken, trailId: selectedTrail.id });
-            setCheckinQr(qr);
+            const qr = await createTrailQr({ accessToken, trailId });
+            setCheckinQrByTrail((prev) => ({ ...prev, [trailId]: qr }));
             setAlert({ type: "success", message: "Generated a new check-in QR token." });
         } catch (err) {
             const message = getErrorMessage(err);
-            setCheckinQrError(message);
+            setCheckinQrErrorByTrail((prev) => ({ ...prev, [trailId]: message }));
             setAlert({ type: "error", message });
         } finally {
-            setCheckinQrLoading(false);
+            setCheckinQrLoadingTrailId((current) => (current === trailId ? null : current));
         }
-    }, [accessToken, checkinQrImageUrl, selectedTrail]);
+    }, [accessToken, selectedTrail, setTrailQrImage]);
 
     const copyCheckinLink = useCallback(() => {
         if (!checkinQr) {
@@ -1313,24 +1352,22 @@ export default function ManageTrailsPage() {
             setAlert({ type: "error", message: "Select a trail first." });
             return;
         }
-        setCheckinQrImageLoading(true);
-        setCheckinQrImageError(null);
-        if (checkinQrImageUrl) {
-            URL.revokeObjectURL(checkinQrImageUrl);
-            setCheckinQrImageUrl(null);
-        }
+        const trailId = selectedTrail.id;
+        setCheckinQrImageLoadingTrailId(trailId);
+        setCheckinQrImageErrorByTrail((prev) => ({ ...prev, [trailId]: null }));
+        setTrailQrImage(trailId, null);
         try {
-            const blob = await getTrailQrImage({ accessToken, trailId: selectedTrail.id });
+            const blob = await getTrailQrImage({ accessToken, trailId });
             const objectUrl = URL.createObjectURL(blob);
-            setCheckinQrImageUrl(objectUrl);
+            setTrailQrImage(trailId, objectUrl);
         } catch (err) {
             const message = getErrorMessage(err);
-            setCheckinQrImageError(message);
+            setCheckinQrImageErrorByTrail((prev) => ({ ...prev, [trailId]: message }));
             setAlert({ type: "error", message });
         } finally {
-            setCheckinQrImageLoading(false);
+            setCheckinQrImageLoadingTrailId((current) => (current === trailId ? null : current));
         }
-    }, [accessToken, checkinQrImageUrl, selectedTrail]);
+    }, [accessToken, selectedTrail, setTrailQrImage]);
 
     useEffect(() => {
         if (!selectedTrailId) {
@@ -1347,15 +1384,8 @@ export default function ManageTrailsPage() {
             setInvitePreviewError(null);
             setInviteRegisterError(null);
             setInviteRegisterResult(null);
-            if (checkinQrImageUrl) {
-                URL.revokeObjectURL(checkinQrImageUrl);
-            }
-            setCheckinQr(null);
-            setCheckinQrError(null);
-            setCheckinQrLoading(false);
-            setCheckinQrImageUrl(null);
-            setCheckinQrImageError(null);
-            setCheckinQrImageLoading(false);
+            setCheckinQrLoadingTrailId(null);
+            setCheckinQrImageLoadingTrailId(null);
             setRoster([]);
             setRosterError(null);
             setRosterLoading(false);
@@ -1370,7 +1400,7 @@ export default function ManageTrailsPage() {
         setInviteRegisterResult(null);
         void refreshRegistrations(selectedTrailId);
         void refreshRoster(selectedTrailId);
-    }, [checkinQrImageUrl, refreshRegistrations, refreshRoster, selectedTrailId]);
+    }, [refreshRegistrations, refreshRoster, selectedTrailId]);
 
     const handleCreateTrail = useCallback(
         async (payload: CreateTrailPayload | UpdateTrailPayload) => {

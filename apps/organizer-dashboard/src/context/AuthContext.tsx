@@ -32,6 +32,7 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshSession: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   addOrganisationMembership: (orgId: string) => void;
 };
@@ -250,10 +251,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!state.user && !!state.tokens?.access_token,
       login,
       logout,
+      refreshSession,
       refreshProfile,
       addOrganisationMembership,
     }),
-    [addOrganisationMembership, login, logout, refreshProfile, state]
+    [addOrganisationMembership, login, logout, refreshProfile, refreshSession, state]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
