@@ -29,6 +29,7 @@ import {
 import { listVouchers, type Voucher } from "../services/points";
 import { useOrganisation } from "../context/OrganisationContext";
 import { formatShortId } from "../utils/participants";
+import { OrganisationRequiredCard } from "../components/OrganisationRequiredCard";
 
 type DashboardActivityType = "trail" | "approval" | "reward";
 
@@ -109,18 +110,21 @@ function describeParticipantForFeed(
 }
 
 export default function DashboardPage() {
-  const { tokens } = useAuth();
+  const { tokens, user } = useAuth();
   const accessToken = tokens?.access_token ?? null;
+  const organiserOrgIds = user?.org_ids ?? [];
   const { organisationId: selectedOrgId, activeOrganisation } = useOrganisation();
 
   const [stats, setStats] = useState(EMPTY_STATS);
   const [activities, setActivities] = useState<DashboardActivity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasOrganisation = organiserOrgIds.length > 0;
+  const canViewOrgData = hasOrganisation && Boolean(selectedOrgId);
 
   const fetchDashboard = useCallback(
     async (signal?: AbortSignal) => {
-      if (!accessToken) {
+      if (!accessToken || !canViewOrgData) {
         setStats(EMPTY_STATS);
         setActivities([]);
         return;
@@ -149,17 +153,15 @@ export default function DashboardPage() {
         const trailsById = new Map<string, (typeof trails)[number]>();
         trails.forEach((trail) => trailsById.set(trail.id, trail));
 
-        const relevantParticipants = selectedOrgId
-          ? participants.filter(
-              (participant) =>
-                Array.isArray(participant.org_ids) &&
-                participant.org_ids.includes(selectedOrgId)
-            )
-          : participants;
+        const relevantParticipants = participants.filter(
+          (participant) =>
+            Array.isArray(participant.org_ids) &&
+            participant.org_ids.includes(selectedOrgId as string)
+        );
 
-        const scopedTrails = selectedOrgId
-          ? trails.filter((trail) => trail.org_id === selectedOrgId)
-          : trails;
+        const scopedTrails = trails.filter(
+          (trail) => trail.org_id === selectedOrgId
+        );
 
         const sortTrailRecency = (trail: (typeof trails)[number]) =>
           new Date(
@@ -191,11 +193,7 @@ export default function DashboardPage() {
           registrationFeed = pages.flatMap((page) => page?.items ?? []);
         }
 
-        const rewardOrgId =
-          selectedOrgId ??
-          activeOrganisation?.id ??
-          organisations[0]?.id ??
-          null;
+        const rewardOrgId = selectedOrgId;
 
         let vouchers: Voucher[] = [];
         if (rewardOrgId) {
@@ -388,11 +386,11 @@ export default function DashboardPage() {
         }
       }
     },
-    [accessToken, selectedOrgId, activeOrganisation?.id]
+    [accessToken, canViewOrgData, selectedOrgId]
   );
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken || !canViewOrgData) {
       setStats(EMPTY_STATS);
       setActivities([]);
       return;
@@ -440,6 +438,10 @@ export default function DashboardPage() {
     approval: "bg-indigo-50 text-indigo-600",
     reward: "bg-amber-50 text-amber-600",
   };
+
+  if (!hasOrganisation) {
+    return <OrganisationRequiredCard />;
+  }
 
   return (
     <div className="space-y-8">

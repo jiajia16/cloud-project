@@ -8,7 +8,7 @@ import {
   FormEvent,
 } from "react";
 import { Button, Card, SectionTitle } from "@silvertrails/ui";
-import { Loader2, RefreshCw, ShieldAlert } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
 import { useOrganisation } from "../../context/OrganisationContext";
@@ -21,6 +21,7 @@ import {
   type OrgLedgerEntry,
 } from "../../services/points";
 import { resolveParticipantIdentity } from "../../utils/participants";
+import { OrganisationRequiredCard } from "../../components/OrganisationRequiredCard";
 
 type AlertState = { type: "success" | "error"; message: string } | null;
 
@@ -174,16 +175,7 @@ export default function PointsPage() {
   }
 
   if (organiserOrgIds.length === 0) {
-    return (
-      <div className="p-4">
-        <Card className="p-6 text-center text-amber-800 bg-amber-50 border border-amber-200 space-y-3">
-          <ShieldAlert className="w-6 h-6 mx-auto" />
-          <p className="text-sm">
-            You have not been assigned to an organisation yet. Ask an admin to add you before managing points.
-          </p>
-        </Card>
-      </div>
-    );
+    return <OrganisationRequiredCard />;
   }
 
   const selectedOrgName =

@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { Button, Card, SectionTitle } from "@silvertrails/ui";
-import { Loader2, RefreshCw, Plus, ShieldAlert } from "lucide-react";
+import { Loader2, RefreshCw, Plus } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
 import { useOrganisation } from "../../context/OrganisationContext";
@@ -20,6 +20,7 @@ import {
   type VoucherCreatePayload,
   type VoucherUpdatePayload,
 } from "../../services/points";
+import { OrganisationRequiredCard } from "../../components/OrganisationRequiredCard";
 
 type AlertState = { type: "success" | "error"; message: string } | null;
 
@@ -323,16 +324,7 @@ export default function RewardsPage() {
   }
 
   if (organiserOrgIds.length === 0) {
-    return (
-      <div className="p-4">
-        <Card className="p-6 text-center text-amber-800 bg-amber-50 border border-amber-200 space-y-3">
-          <ShieldAlert className="w-6 h-6 mx-auto" />
-          <p className="text-sm">
-            You have not been assigned to an organisation yet. Ask an admin to add you before managing rewards.
-          </p>
-        </Card>
-      </div>
-    );
+    return <OrganisationRequiredCard />;
   }
 
   return (

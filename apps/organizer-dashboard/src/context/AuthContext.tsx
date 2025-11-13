@@ -33,6 +33,7 @@ type AuthContextValue = {
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  addOrganisationMembership: (orgId: string) => void;
 };
 
 const STORAGE_KEY = "organizer-auth-state";
@@ -160,6 +161,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [hydrateProfile, state.tokens?.access_token]);
 
+  const addOrganisationMembership = useCallback((orgId: string) => {
+    if (!orgId) {
+      return;
+    }
+    setState((prev) => {
+      if (!prev.user) {
+        return prev;
+      }
+      const existing = prev.user.org_ids ?? [];
+      if (existing.includes(orgId)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        user: {
+          ...prev.user,
+          org_ids: [...existing, orgId],
+        },
+      };
+    });
+  }, []);
+
   const login = useCallback(
     async (username: string, password: string) => {
       const response = await organiserLogin({ username, password });
@@ -228,8 +251,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       refreshProfile,
+      addOrganisationMembership,
     }),
-    [login, logout, refreshProfile, state]
+    [addOrganisationMembership, login, logout, refreshProfile, state]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

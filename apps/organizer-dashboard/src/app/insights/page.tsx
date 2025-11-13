@@ -28,6 +28,7 @@ import {
   type RedemptionItem,
 } from "../../services/points";
 import { resolveParticipantIdentity } from "../../utils/participants";
+import { OrganisationRequiredCard } from "../../components/OrganisationRequiredCard";
 
 type LoadingState = {
   loading: boolean;
@@ -73,6 +74,7 @@ export default function InsightsPage() {
     organisations: organisationOptions,
   } = useOrganisation();
   const SUMMARY_DAYS = 30;
+  const hasOrganisation = orgIds.length > 0;
 
   const [systemRows, setSystemRows] = useState<LeaderboardRow[]>([]);
   const [orgRows, setOrgRows] = useState<LeaderboardRow[]>([]);
@@ -99,6 +101,10 @@ export default function InsightsPage() {
   const [systemReloadToken, setSystemReloadToken] = useState(0);
   const [orgReloadToken, setOrgReloadToken] = useState(0);
   const [attendanceReloadToken, setAttendanceReloadToken] = useState(0);
+
+  if (!hasOrganisation) {
+    return <OrganisationRequiredCard />;
+  }
 
   // Load organisations available to this user
   useEffect(() => {

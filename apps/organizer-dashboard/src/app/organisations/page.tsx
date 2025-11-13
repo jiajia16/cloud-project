@@ -13,8 +13,9 @@ import { useAuth } from "../../context/AuthContext";
 import { useOrganisation } from "../../context/OrganisationContext";
 
 export default function OrganisationsPage() {
-  const { isAuthenticated, tokens, user, refreshProfile, login } = useAuth();
-  const { refreshOrganisations } = useOrganisation();
+  const { isAuthenticated, tokens, user, refreshProfile, login, addOrganisationMembership } =
+    useAuth();
+  const { refreshOrganisations, selectOrganisation } = useOrganisation();
 
   const [name, setName] = useState("");
   const [nric, setNric] = useState("");
@@ -181,6 +182,8 @@ export default function OrganisationsPage() {
       setSelectedOrg(organisation.id);
       await refreshProfile();
       await refreshOrganisations();
+      addOrganisationMembership(organisation.id);
+      selectOrganisation(organisation.id);
     } catch (error) {
       const message =
         error instanceof Error
@@ -219,6 +222,8 @@ export default function OrganisationsPage() {
       setJoinSuccess("You're now part of this organisation.");
       await refreshProfile();
       await refreshOrganisations();
+      addOrganisationMembership(selectedOrg);
+      selectOrganisation(selectedOrg);
     } catch (error) {
       const message =
         error instanceof Error

@@ -19,6 +19,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useOrganisation } from "../../context/OrganisationContext";
 import { listParticipants, resolveParticipantUserId, type UserSummary } from "../../services/auth";
 import { formatParticipantIdentity, resolveParticipantIdentity } from "../../utils/participants";
+import { OrganisationRequiredCard } from "../../components/OrganisationRequiredCard";
 import {
     acceptInvite,
     approveRegistration,
@@ -1597,11 +1598,7 @@ export default function ManageTrailsPage() {
     }
 
     if (!orgId) {
-        return (
-            <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-8 text-center">
-                <p className="text-gray-700">This organiser account is not linked to any organisation.</p>
-            </div>
-        );
+        return <OrganisationRequiredCard />;
     }
 
     return (

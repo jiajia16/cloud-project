@@ -11,6 +11,7 @@ import { getOrgAttendanceSummary } from "../../services/leaderboard";
 import { getOrgPointsSummary } from "../../services/points";
 import { getTrailsOverview, listTrails } from "../../services/trails";
 import { formatShortId } from "../../utils/participants";
+import { OrganisationRequiredCard } from "../../components/OrganisationRequiredCard";
 
 type ReportId =
   | "participation"
@@ -131,8 +132,9 @@ function formatDate(value: string | Date) {
 }
 
 export default function ReportsPage() {
-  const { tokens } = useAuth();
+  const { tokens, user } = useAuth();
   const accessToken = tokens?.access_token ?? null;
+  const organiserOrgIds = user?.org_ids ?? [];
   const {
     organisationId: selectedOrgId,
     activeOrganisation,
@@ -145,6 +147,9 @@ export default function ReportsPage() {
   >(null);
 
   const canExport = Boolean(accessToken && selectedOrgId);
+  if (organiserOrgIds.length === 0) {
+    return <OrganisationRequiredCard />;
+  }
   const filenameOrgSegment = useMemo(() => {
     if (!selectedOrgId) {
       return "org";
