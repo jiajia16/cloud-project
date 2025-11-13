@@ -95,7 +95,7 @@ REPORTS
 - [x] When returning to a trail that already had a check-in QR generated, show the existing QR/link instead of clearing the state so organisers don't need to regenerate immediately.
 - [x] Introduce observability hooks (structured audit events + Prometheus counters) around voucher redemption, manual adjustments, and check-in awards. Emit events via a dedicated logger and expose metrics on a `/metrics` endpoint so operations can trace issues and set up alerts for anomalies.
 - [ ] Optimise senior app data fetching by layering in a client-side cache (React Query/SWR) for points, ledger, and vouchers. Cached reads reduce perceived latency when seniors switch organisations and cut redundant API calls.
-- [x] Centralise copy and formatting for localisation by extracting strings/date formats in the senior PWA into a translation module. This prepares the interface for multi-language support and keeps regional formatting consistent.
+- [x] Centralise copy and formatting for localisation by extracting strings/date formats in the senior PWA into a translation module. This prepares the interface for multi-language support (English, Mandarin, Malay, Tamil) and keeps regional formatting consistent.
 - [ ] (Optional) Streamline developer onboarding with a devcontainer or compose profile that boots all core services plus seed data. Document the workflow so new contributors can run end-to-end tests locally without manual setup. 
 
 ## UI/UX Suggestions
@@ -105,3 +105,4 @@ REPORTS
 - [ ] Upgrade organiser insights with drill-down modals and persistent filters, surfacing at-a-glance stats (top trail, weekly redemptions) on dashboard load so organisers can act without navigating away.
 - [ ] Introduce wizard-style organiser workflows for trail setup and voucher creation, offering real-time previews and suggested point values derived from historical data to speed up repeat tasks.
 - [ ] Build a cross-role notification centre: organisers compose announcements with delivery tracking while seniors receive in-app and email notices with consistent acknowledgement states.
+
