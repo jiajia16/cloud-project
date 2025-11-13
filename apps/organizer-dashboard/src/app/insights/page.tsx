@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Trophy, Users, Clock, RefreshCw, BarChart3, Gift, Activity } from "lucide-react";
 import { Button, Card } from "@silvertrails/ui";
 import { useAuth } from "../../context/AuthContext";
+import { useOrganisation } from "../../context/OrganisationContext";
 import {
   getOrgLeaderboard,
   getSystemLeaderboard,
@@ -15,10 +16,8 @@ import {
 } from "../../services/leaderboard";
 import { listTrails, getTrailsOverview, type Trail, type TrailsOverview } from "../../services/trails";
 import {
-  listOrganisations,
   listParticipants,
   getOrganisationStats,
-  type OrganisationSummary,
   type OrganisationStats,
   type UserSummary,
 } from "../../services/auth";
@@ -68,13 +67,17 @@ export default function InsightsPage() {
   const { user, tokens } = useAuth();
   const accessToken = tokens?.access_token ?? null;
   const orgIds = user?.org_ids ?? [];
+  const {
+    organisationId: selectedOrgId,
+    activeOrganisation,
+    organisations: organisationOptions,
+  } = useOrganisation();
   const SUMMARY_DAYS = 30;
 
   const [systemRows, setSystemRows] = useState<LeaderboardRow[]>([]);
   const [orgRows, setOrgRows] = useState<LeaderboardRow[]>([]);
   const [attendanceRows, setAttendanceRows] = useState<AttendanceEntry[]>([]);
   const [trails, setTrails] = useState<Trail[]>([]);
-  const [organisations, setOrganisations] = useState<OrganisationSummary[]>([]);
   const [participants, setParticipants] = useState<UserSummary[]>([]);
   const [orgStats, setOrgStats] = useState<OrganisationStats | null>(null);
   const [trailsOverviewData, setTrailsOverviewData] = useState<TrailsOverview | null>(null);
@@ -82,7 +85,6 @@ export default function InsightsPage() {
   const [pointsSummary, setPointsSummary] = useState<PointsSummary | null>(null);
   const [recentRedemptions, setRecentRedemptions] = useState<RedemptionItem[]>([]);
 
-  const [selectedOrgId, setSelectedOrgId] = useState<string>("");
   const [selectedTrailId, setSelectedTrailId] = useState<string>("");
 
   const [systemState, setSystemState] = useState<LoadingState>({ loading: false, error: null });
@@ -101,20 +103,10 @@ export default function InsightsPage() {
   // Load organisations available to this user
   useEffect(() => {
     if (!accessToken) {
-      setOrganisations([]);
       setParticipants([]);
       return;
     }
     const controller = new AbortController();
-    listOrganisations({ accessToken, signal: controller.signal })
-      .then((items) => {
-        setOrganisations(Array.isArray(items) ? items : []);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setOrganisations([]);
-        }
-      });
     listParticipants({ accessToken, signal: controller.signal })
       .then((items) => {
         setParticipants(Array.isArray(items) ? items : []);
@@ -126,18 +118,6 @@ export default function InsightsPage() {
       });
     return () => controller.abort();
   }, [accessToken]);
-
-  // Build a stable list of org options (merge user org ids + fetched orgs)
-  const availableOrgOptions = useMemo(() => {
-    const map = new Map<string, OrganisationSummary>();
-    organisations.forEach((org) => map.set(org.id, org));
-    orgIds.forEach((id) => {
-      if (!map.has(id)) {
-        map.set(id, { id, name: `Organisation ${String(id).slice(0, 6)}...` });
-      }
-    });
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [organisations, orgIds]);
 
   const participantDirectory = useMemo(() => {
     const map = new Map<string, UserSummary>();
@@ -165,24 +145,6 @@ export default function InsightsPage() {
     },
     [participantIdentityOf]
   );
-
-  const selectedOrgMeta = useMemo(() => {
-    if (!selectedOrgId) return null;
-    return availableOrgOptions.find((org) => org.id === selectedOrgId) ?? null;
-  }, [availableOrgOptions, selectedOrgId]);
-
-  // Default/select a valid org id
-  useEffect(() => {
-    if (!selectedOrgId && availableOrgOptions.length > 0) {
-      setSelectedOrgId(availableOrgOptions[0].id);
-    } else if (
-      selectedOrgId &&
-      availableOrgOptions.length > 0 &&
-      !availableOrgOptions.some((org) => org.id === selectedOrgId)
-    ) {
-      setSelectedOrgId(availableOrgOptions[0].id);
-    }
-  }, [availableOrgOptions, selectedOrgId]);
 
   const selectedOrgIsMember = useMemo(() => {
     if (!selectedOrgId) return false;
@@ -470,8 +432,8 @@ export default function InsightsPage() {
             <Users className="h-5 w-5 text-indigo-500" />
             <div>
               <h2 className="text-lg font-semibold">Organisation Snapshot</h2>
-              {selectedOrgMeta ? (
-                <p className="text-sm text-gray-500">{selectedOrgMeta.name}</p>
+              {activeOrganisation ? (
+                <p className="text-sm text-gray-500">{activeOrganisation.name}</p>
               ) : null}
             </div>
           </div>
@@ -771,32 +733,18 @@ export default function InsightsPage() {
             <Users className="h-5 w-5 text-indigo-500" />
             <h2 className="text-lg font-semibold">Organisation Leaderboard</h2>
           </div>
-          <div className="flex flex-wrap gap-3 items-center">
-            <label className="text-sm text-gray-700 flex items-center gap-2">
-              <span>Organisation</span>
-              <select
-                value={selectedOrgId}
-                onChange={(e) => setSelectedOrgId(e.target.value)}
-                disabled={!canInteract || availableOrgOptions.length === 0}
-                className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 min-w-[12rem]"
-              >
-                {availableOrgOptions.length === 0 ? (
-                  <option value="">No organisations</option>
-                ) : (
-                  availableOrgOptions.map((org) => (
-                    <option key={org.id} value={org.id}>
-                      {org.name}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
+          <div className="flex flex-col sm:items-end gap-2">
+            <p className="text-sm text-gray-600">
+              {activeOrganisation
+                ? `Organisation: ${activeOrganisation.name}`
+                : "Select an organisation from the header to view rankings."}
+            </p>
             <Button
               type="button"
               variant="ghost"
               onClick={handleOrgRefresh}
               disabled={!canInteract || !selectedOrgId || orgState.loading}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 self-start sm:self-auto"
             >
               <RefreshCw className="h-4 w-4" />
               Refresh
@@ -806,7 +754,7 @@ export default function InsightsPage() {
 
         {!canInteract ? (
           <p className="text-sm text-gray-600">Sign in to view organisation rankings.</p>
-        ) : availableOrgOptions.length === 0 ? (
+        ) : organisationOptions.length === 0 ? (
           <p className="text-sm text-gray-600">No organisations available yet.</p>
         ) : !selectedOrgId ? (
           <p className="text-sm text-gray-600">Select an organisation to see member standings.</p>

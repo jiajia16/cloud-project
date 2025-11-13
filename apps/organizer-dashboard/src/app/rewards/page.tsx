@@ -11,7 +11,7 @@ import { Button, Card, SectionTitle } from "@silvertrails/ui";
 import { Loader2, RefreshCw, Plus, ShieldAlert } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
-import { listOrganisations } from "../../services/auth";
+import { useOrganisation } from "../../context/OrganisationContext";
 import {
   listVouchers,
   createVoucher,
@@ -208,13 +208,7 @@ export default function RewardsPage() {
   const { tokens, user } = useAuth();
   const accessToken = tokens?.access_token ?? null;
   const organiserOrgIds = user?.org_ids ?? [];
-
-  const [organisations, setOrganisations] = useState<
-    { id: string; name: string }[]
-  >([]);
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
-    organiserOrgIds[0] ?? null
-  );
+  const { organisationId: selectedOrgId, activeOrganisation } = useOrganisation();
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(false);
@@ -230,23 +224,6 @@ export default function RewardsPage() {
     voucher: null,
   });
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (organiserOrgIds.length > 0 && !selectedOrgId) {
-      setSelectedOrgId(organiserOrgIds[0]);
-    }
-  }, [organiserOrgIds, selectedOrgId]);
-
-  useEffect(() => {
-    if (!accessToken) {
-      return;
-    }
-    const controller = new AbortController();
-    listOrganisations({ accessToken, signal: controller.signal })
-      .then((orgs) => setOrganisations(orgs))
-      .catch(() => {});
-    return () => controller.abort();
-  }, [accessToken]);
 
   const fetchVouchers = useCallback(async () => {
     if (!accessToken || !selectedOrgId) {
@@ -272,12 +249,6 @@ export default function RewardsPage() {
   useEffect(() => {
     void fetchVouchers();
   }, [fetchVouchers]);
-
-  const orgNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    organisations.forEach((org) => map.set(org.id, org.name));
-    return map;
-  }, [organisations]);
 
   const handleCreate = useCallback(
     async (payload: VoucherCreatePayload) => {
@@ -373,26 +344,17 @@ export default function RewardsPage() {
             Create vouchers seniors can redeem with their points.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <label className="flex flex-col text-xs text-gray-500 uppercase">
-            Organisation
-            <select
-              value={selectedOrgId ?? ""}
-              onChange={(event) => setSelectedOrgId(event.target.value || null)}
-              className="mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
-            >
-              {organiserOrgIds.map((orgId) => (
-                <option key={orgId} value={orgId}>
-                  {orgNameById.get(orgId) ?? orgId.slice(0, 8).toUpperCase()}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="flex flex-col sm:items-end gap-2">
+          <p className="text-sm text-gray-600">
+            {activeOrganisation
+              ? `Organisation: ${activeOrganisation.name}`
+              : "Select an organisation from the header to manage rewards."}
+          </p>
           <Button
             variant="ghost"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 self-start sm:self-auto"
             onClick={() => void fetchVouchers()}
-            disabled={loading}
+            disabled={loading || !selectedOrgId}
           >
             <RefreshCw
               className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}

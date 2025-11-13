@@ -36,9 +36,7 @@ export default function PointsPage() {
   const organiserOrgIds = user?.org_ids ?? [];
   const {
     organisationId: selectedOrgId,
-    selectOrganisation,
-    organisations: organisationOptions,
-    loading: organisationLoading,
+    activeOrganisation,
     refreshOrganisations,
   } = useOrganisation();
 
@@ -189,8 +187,7 @@ export default function PointsPage() {
   }
 
   const selectedOrgName =
-    (selectedOrgId &&
-      organisationOptions.find((org) => org.id === selectedOrgId)?.name) ||
+    activeOrganisation?.name ||
     (selectedOrgId ? selectedOrgId.slice(0, 8).toUpperCase() : "N/A");
 
   const totalPoints = balances.reduce((sum, entry) => sum + entry.balance, 0);
@@ -206,27 +203,17 @@ export default function PointsPage() {
             Monitor balances and record manual adjustments.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <label className="flex flex-col text-xs text-gray-500 uppercase">
-            Organisation
-            <select
-              value={selectedOrgId ?? ""}
-              onChange={(event) => selectOrganisation(event.target.value || null)}
-              className="mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
-              disabled={organisationLoading || organisationOptions.length === 0}
-            >
-              {organisationOptions.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="flex flex-col sm:items-end gap-2">
+          <p className="text-sm text-gray-600">
+            {activeOrganisation
+              ? `Organisation: ${activeOrganisation.name}`
+              : "Select an organisation from the header to view balances."}
+          </p>
           <Button
             variant="ghost"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 self-start sm:self-auto"
             onClick={() => void fetchPoints()}
-            disabled={loading}
+            disabled={loading || !selectedOrgId}
           >
             <RefreshCw
               className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
