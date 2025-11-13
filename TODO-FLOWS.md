@@ -94,10 +94,9 @@ REPORTS
 - [x] Fix Manage Trails check-in QR generator so the QR/link updates per trail; right now the generated token persists when navigating to other trails and shows the same link.
 - [x] When returning to a trail that already had a check-in QR generated, show the existing QR/link instead of clearing the state so organisers don't need to regenerate immediately.
 - [x] Introduce observability hooks (structured audit events + Prometheus counters) around voucher redemption, manual adjustments, and check-in awards. Emit events via a dedicated logger and expose metrics on a `/metrics` endpoint so operations can trace issues and set up alerts for anomalies.
-- [ ] Optimise senior app data fetching by layering in a client-side cache (React Query/SWR) for points, ledger, and vouchers. Cached reads reduce perceived latency when seniors switch organisations and cut redundant API calls.
 - [x] Centralise copy and formatting for localisation by extracting strings/date formats in the senior PWA into a translation module. This prepares the interface for multi-language support (English, Mandarin, Malay, Tamil) and keeps regional formatting consistent.
 - [x] Implement full senior PWA localisation coverage for English, Mandarin, Malay, and Tamil using the new translation module, including language switching UI and translated copy across primary screens. (Home, Join, Scan, auth flows, Rewards, MyTrails, Leaderboard, and Social now fully translated.)
-- [ ] (Optional) Streamline developer onboarding with a devcontainer or compose profile that boots all core services plus seed data. Document the workflow so new contributors can run end-to-end tests locally without manual setup. 
+
 
 ## UI/UX Suggestions
 - [x] Fix the senior language switcher lag by updating `LocaleProvider` to synchronously set the active locale before re-rendering so translations change immediately after selection.
