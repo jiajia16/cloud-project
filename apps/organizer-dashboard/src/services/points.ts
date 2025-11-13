@@ -99,6 +99,33 @@ export type RedemptionItem = {
     voucher_code?: string | null;
 };
 
+export type Voucher = {
+    id: string;
+    org_id: string;
+    code: string;
+    name: string;
+    points_cost: number;
+    status: "active" | "disabled";
+    total_quantity: number | null;
+    redeemed_count: number;
+    created_at?: string | null;
+    updated_at?: string | null;
+};
+
+export type VoucherCreatePayload = {
+    code: string;
+    name: string;
+    points_cost: number;
+    total_quantity?: number | null;
+};
+
+export type VoucherUpdatePayload = {
+    name?: string;
+    points_cost?: number;
+    status?: "active" | "disabled";
+    total_quantity?: number | null;
+};
+
 function buildQuery(params: Record<string, QueryValue>) {
     const search = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {

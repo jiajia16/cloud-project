@@ -16,6 +16,8 @@ export type Trail = {
   location: string | null;
   capacity: number;
   status: TrailStatus;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type RegistrationStatus =
@@ -33,6 +35,8 @@ export type Registration = {
   user_id: string;
   status: RegistrationStatus;
   note: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 export type RegistrationPage = {
@@ -147,6 +151,8 @@ type RegistrationResponse = {
   user_id: string;
   status: RegistrationStatus;
   note?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 type RegistrationPageResponse = {
@@ -202,6 +208,8 @@ function normaliseRegistration(entry: RegistrationResponse): Registration {
     user_id: entry.user_id,
     status: entry.status,
     note: entry.note ?? null,
+    created_at: entry.created_at ?? null,
+    updated_at: entry.updated_at ?? null,
   };
 }
 
@@ -267,17 +275,23 @@ export async function getTrailRegistrations({
   status,
   limit,
   offset,
+  sort = "created",
+  direction = "asc",
   signal,
 }: FetchOptions & {
   trailId: string;
   status?: RegistrationStatus;
   limit?: number;
   offset?: number;
+  sort?: "created" | "updated";
+  direction?: "asc" | "desc";
 }) {
   const qs = buildQuery({
     status_filter: status,
     limit,
     offset,
+    sort,
+    direction,
   });
   const response = await fetch(
     TRAILS_BASE_URL + "/trails/" + trailId + "/attendees" + qs,
