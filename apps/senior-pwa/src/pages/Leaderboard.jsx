@@ -1,33 +1,45 @@
-import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout.jsx";
 import { Card, Tabs, Button } from "@silvertrails/ui";
 import { Medal, RefreshCcw, AlertCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { useLocale } from "../contexts/LocaleContext.jsx";
 import { formatPoints } from "@silvertrails/utils";
 import { getSystemLeaderboard, getOrgLeaderboard } from "../services/leaderboard.js";
+import { t } from "../i18n/index.js";
 
-const TAB_OPTIONS = ["All Seniors", "My CC"];
+const TAB_KEYS = {
+    system: "system",
+    org: "org",
+};
 
 function displayName(entry, currentUserId) {
-    if (entry.user_id === currentUserId) {
-        return "You";
+    if (!entry?.user_id) {
+        return "";
     }
-    return `Participant ${entry.user_id.slice(0, 6).toUpperCase()}`;
+    if (entry.user_id === currentUserId) {
+        return t("leaderboard.entries.you");
+    }
+    return t("leaderboard.entries.participantLabel", {
+        id: entry.user_id.slice(0, 6).toUpperCase(),
+    });
 }
 
 function formatOrgLabel(orgId) {
     if (!orgId) {
-        return "Unknown community";
+        return t("leaderboard.org.unknown");
     }
-    return `Community ${orgId.slice(0, 8).toUpperCase()}`;
+    return t("leaderboard.org.label", { id: orgId.slice(0, 8).toUpperCase() });
 }
 
-function LeaderboardBlocks({ leaders, loading, error, onRefresh, emptyMessage, currentUserId }) {
+function LeaderboardBlocks({
+    leaders,
+    loading,
+    error,
+    onRefresh,
+    emptyMessage,
+    currentUserId,
+}) {
     const hasEntries = leaders.length > 0;
     const topThree = leaders.slice(0, 3);
     const highlightEntry = currentUserId
@@ -39,7 +51,7 @@ function LeaderboardBlocks({ leaders, loading, error, onRefresh, emptyMessage, c
         <>
             <Card className="mb-3 mt-4">
                 {loading && !hasEntries ? (
-                    <p className="text-sm text-gray-600">Loading leaderboard…</p>
+                    <p className="text-sm text-gray-600">{t("leaderboard.blocks.loading")}</p>
                 ) : error && !hasEntries ? (
                     <div className="flex items-center gap-2 text-sm text-rose-600">
                         <AlertCircle className="w-4 h-4" />
@@ -66,7 +78,7 @@ function LeaderboardBlocks({ leaders, loading, error, onRefresh, emptyMessage, c
                                         {displayName(entry, currentUserId)}
                                     </div>
                                     <div className="text-sm text-gray-500">
-                                        Rank #{entry.rank}
+                                        {t("leaderboard.blocks.rank", { rank: entry.rank })}
                                     </div>
                                     <div className="text-teal-600 font-bold mt-1">
                                         {formatPoints(entry.score)}
@@ -80,14 +92,18 @@ function LeaderboardBlocks({ leaders, loading, error, onRefresh, emptyMessage, c
 
             <Card>
                 <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-semibold text-gray-800">Top Participants</h3>
+                    <h3 className="text-lg font-semibold text-gray-800">
+                        {t("leaderboard.blocks.title")}
+                    </h3>
                     <Button
                         onClick={() => onRefresh?.()}
                         disabled={loading}
                         className="bg-white border border-teal-200 text-teal-700 hover:bg-teal-50 text-sm flex items-center gap-2"
                     >
                         <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                        Refresh
+                        {loading
+                            ? t("leaderboard.blocks.refreshing")
+                            : t("leaderboard.blocks.refresh")}
                     </Button>
                 </div>
                 {error && hasEntries && (
@@ -131,7 +147,7 @@ function LeaderboardBlocks({ leaders, loading, error, onRefresh, emptyMessage, c
                 )}
                 {highlightRank && (
                     <p className="mt-3 text-sm text-gray-600 text-center">
-                        Keep going! You’re currently ranked #{highlightRank}.
+                        {t("leaderboard.blocks.keepGoing", { rank: highlightRank })}
                     </p>
                 )}
             </Card>
@@ -142,8 +158,9 @@ function LeaderboardBlocks({ leaders, loading, error, onRefresh, emptyMessage, c
 export default function Leaderboard() {
     const { tokens, user } = useAuth();
     const accessToken = tokens?.access_token;
+    const { locale } = useLocale();
 
-    const [activeTab, setActiveTab] = useState(TAB_OPTIONS[0]);
+    const [activeTab, setActiveTab] = useState(TAB_KEYS.system);
 
     const [systemLeaders, setSystemLeaders] = useState([]);
     const [systemLoading, setSystemLoading] = useState(false);
@@ -181,7 +198,7 @@ export default function Leaderboard() {
                 setSystemLeaders(Array.isArray(data) ? data : []);
             } catch (err) {
                 if (!(signal?.aborted)) {
-                    setSystemError(err?.message ?? "Unable to load leaderboard right now.");
+                    setSystemError(err?.message ?? t("leaderboard.errors.systemLoad"));
                 }
             } finally {
                 if (!(signal?.aborted)) {
@@ -213,7 +230,7 @@ export default function Leaderboard() {
             } catch (err) {
                 if (!(signal?.aborted)) {
                     setOrgError(
-                        err?.message ?? "Unable to load your community leaderboard right now."
+                        err?.message ?? t("leaderboard.errors.orgLoad")
                     );
                 }
             } finally {
@@ -244,7 +261,7 @@ export default function Leaderboard() {
             setOrgLoading(false);
             return;
         }
-        if (activeTab !== "My CC" || !accessToken) {
+        if (activeTab !== TAB_KEYS.org || !accessToken) {
             return;
         }
         const controller = new AbortController();
@@ -260,14 +277,36 @@ export default function Leaderboard() {
         }
     }, [accessToken]);
 
-    const selectedOrgLabel = useMemo(() => formatOrgLabel(selectedOrgId), [selectedOrgId]);
+    const selectedOrgLabel = useMemo(() => formatOrgLabel(selectedOrgId), [selectedOrgId, locale]);
+
+    const tabDefs = useMemo(
+        () => [
+            { key: TAB_KEYS.system, label: t("leaderboard.tabs.system") },
+            { key: TAB_KEYS.org, label: t("leaderboard.tabs.org") },
+        ],
+        [locale]
+    );
+
+    const activeTabLabel = useMemo(
+        () => tabDefs.find((def) => def.key === activeTab)?.label ?? tabDefs[0]?.label ?? "",
+        [tabDefs, activeTab]
+    );
+
+    const handleTabChange = useCallback(
+        (label) => {
+            const match = tabDefs.find((def) => def.label === label);
+            if (match) {
+                setActiveTab(match.key);
+            }
+        },
+        [tabDefs]
+    );
 
     const renderOrgLeaderboard = () => {
         if (!orgIds || orgIds.length === 0) {
             return (
                 <Card className="mt-4 p-5 text-sm text-gray-600">
-                    You have not been added to a community centre yet. Ask your organiser to add you
-                    so you can see how your community is doing.
+                    {t("leaderboard.org.noOrgMessage")}
                 </Card>
             );
         }
@@ -276,13 +315,13 @@ export default function Leaderboard() {
             <>
                 <Card className="mt-4 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="text-sm text-gray-500">Your community</p>
+                        <p className="text-sm text-gray-500">{t("leaderboard.org.currentLabel")}</p>
                         <p className="text-lg font-semibold text-gray-800">{selectedOrgLabel}</p>
                     </div>
                     {orgIds.length > 1 && (
                         <div className="text-sm">
                             <label className="block text-xs text-gray-500 uppercase mb-1">
-                                Switch community
+                                {t("leaderboard.org.switchLabel")}
                             </label>
                             <select
                                 value={selectedOrgId ?? ""}
@@ -304,7 +343,7 @@ export default function Leaderboard() {
                     loading={orgLoading}
                     error={orgError}
                     onRefresh={() => fetchOrgLeaders()}
-                    emptyMessage="No rankings yet for your community. Join activities to climb the board!"
+                    emptyMessage={t("leaderboard.blocks.emptyOrg")}
                     currentUserId={user?.id}
                 />
             </>
@@ -312,26 +351,26 @@ export default function Leaderboard() {
     };
 
     return (
-        <Layout title="Leaderboard">
+        <Layout title={t("leaderboard.pageTitle")}>
             <div className="pb-24 px-4 space-y-4">
                 <Tabs
-                    tabs={TAB_OPTIONS}
-                    active={activeTab}
-                    onChange={setActiveTab}
+                    tabs={tabDefs.map((def) => def.label)}
+                    active={activeTabLabel}
+                    onChange={handleTabChange}
                     className="text-gray-800 font-medium"
                 />
 
                 {!accessToken ? (
                     <Card className="p-4 text-sm text-gray-600">
-                        Please sign in to view the leaderboard.
+                        {t("leaderboard.signInPrompt")}
                     </Card>
-                ) : activeTab === "All Seniors" ? (
+                ) : activeTab === TAB_KEYS.system ? (
                     <LeaderboardBlocks
                         leaders={systemLeaders}
                         loading={systemLoading}
                         error={systemError}
                         onRefresh={() => fetchSystemLeaders()}
-                        emptyMessage="No rankings yet. Complete some activities to appear on the leaderboard!"
+                        emptyMessage={t("leaderboard.blocks.emptySystem")}
                         currentUserId={user?.id}
                     />
                 ) : (

@@ -57,6 +57,14 @@ const enMessages = {
   layout: {
     languageLabel: "Language",
   },
+  nav: {
+    home: "Home",
+    myTrails: "My Trails",
+    scan: "Scan",
+    leaderboard: "Leaderboard",
+    rewards: "Rewards",
+    community: "Community",
+  },
   home: {
     profile: {
       comingSoon: "Profile screen coming soon!",
@@ -267,6 +275,39 @@ const enMessages = {
       title: "Recent check-ins",
       empty: "You have not checked in to any trails yet. Scan a QR code to get started!",
       trailLabel: "Trail {id}",
+    },
+  },
+  leaderboard: {
+    pageTitle: "Leaderboard",
+    signInPrompt: "Sign in to view leaderboards.",
+    tabs: {
+      system: "Community",
+      org: "My Organisation",
+    },
+    entries: {
+      you: "You",
+      participantLabel: "Participant {id}",
+    },
+    org: {
+      unknown: "Organisation",
+      label: "Org {id}",
+      noOrgMessage: "Join an organisation to view its leaderboard.",
+      currentLabel: "Current organisation",
+      switchLabel: "Switch organisation",
+    },
+    blocks: {
+      title: "Top 50",
+      loading: "Loading leaderboard...",
+      rank: "Rank #{rank}",
+      refreshing: "Refreshing...",
+      refresh: "Refresh",
+      keepGoing: "Keep going! You're currently ranked #{rank}.",
+      emptyOrg: "No leaderboard entries for this organisation yet.",
+      emptySystem: "No community leaderboard entries yet.",
+    },
+    errors: {
+      systemLoad: "Unable to load community leaderboard.",
+      orgLoad: "Unable to load organisation leaderboard.",
     },
   },
   rewards: {
@@ -526,6 +567,14 @@ const zhMessages = {
   },
   layout: {
     languageLabel: "语言",
+  },
+  nav: {
+    home: "首页",
+    myTrails: "我的行程",
+    scan: "扫描",
+    leaderboard: "排行榜",
+    rewards: "奖励",
+    community: "社区",
   },
   home: {
     profile: {
@@ -823,6 +872,39 @@ const zhMessages = {
       trailLabel: "行程 {id}",
     },
   },
+  leaderboard: {
+    pageTitle: "排行榜",
+    signInPrompt: "登入后查看排行榜。",
+    tabs: {
+      system: "社区榜",
+      org: "我的组织",
+    },
+    entries: {
+      you: "你",
+      participantLabel: "参与者 {id}",
+    },
+    org: {
+      unknown: "组织",
+      label: "组织 {id}",
+      noOrgMessage: "加入组织后即可查看该组织的排行榜。",
+      currentLabel: "当前组织",
+      switchLabel: "切换组织",
+    },
+    blocks: {
+      title: "前 50 名",
+      loading: "正在载入排行榜...",
+      rank: "第 {rank} 名",
+      refreshing: "正在刷新...",
+      refresh: "刷新",
+      keepGoing: "继续加油！你目前排名第 {rank}。",
+      emptyOrg: "该组织暂时没有排行榜记录。",
+      emptySystem: "社区排行榜尚无记录。",
+    },
+    errors: {
+      systemLoad: "无法载入社区排行榜。",
+      orgLoad: "无法载入组织排行榜。",
+    },
+  },
   myTrails: {
     pageTitle: "我的行程",
     hero: {
@@ -1079,6 +1161,14 @@ const msMessages = {
   layout: {
     languageLabel: "Bahasa",
   },
+  nav: {
+    home: "Utama",
+    myTrails: "Jejak Saya",
+    scan: "Imbas",
+    leaderboard: "Papan pendahulu",
+    rewards: "Ganjaran",
+    community: "Komuniti",
+  },
   home: {
     profile: {
       comingSoon: "Profil akan datang!",
@@ -1245,6 +1335,39 @@ const msMessages = {
       title: "Daftar masuk terkini",
       empty: "Anda belum daftar masuk mana-mana jejak. Imbas kod QR untuk bermula!",
       trailLabel: "Jejak {id}",
+    },
+  },
+  leaderboard: {
+    pageTitle: "Papan pendahulu",
+    signInPrompt: "Log masuk untuk melihat papan pendahulu.",
+    tabs: {
+      system: "Komuniti",
+      org: "Organisasi Saya",
+    },
+    entries: {
+      you: "Anda",
+      participantLabel: "Peserta {id}",
+    },
+    org: {
+      unknown: "Organisasi",
+      label: "Organisasi {id}",
+      noOrgMessage: "Sertai organisasi untuk melihat papan pendahulunya.",
+      currentLabel: "Organisasi semasa",
+      switchLabel: "Tukar organisasi",
+    },
+    blocks: {
+      title: "50 Teratas",
+      loading: "Sedang memuatkan papan pendahulu...",
+      rank: "Kedudukan #{rank}",
+      refreshing: "Sedang menyegar...",
+      refresh: "Segar semula",
+      keepGoing: "Teruskan! Anda kini di kedudukan #{rank}.",
+      emptyOrg: "Belum ada catatan untuk organisasi ini.",
+      emptySystem: "Belum ada catatan komuniti setakat ini.",
+    },
+    errors: {
+      systemLoad: "Tidak dapat memuatkan papan pendahulu komuniti.",
+      orgLoad: "Tidak dapat memuatkan papan pendahulu organisasi.",
     },
   },
   myTrails: {
@@ -1505,6 +1628,14 @@ const taMessages = {
   layout: {
     languageLabel: "மொழி",
   },
+  nav: {
+    home: "முகப்பு",
+    myTrails: "என் செயல்பாடுகள்",
+    scan: "ஸ்கேன்",
+    leaderboard: "முன்னணி",
+    rewards: "பரிசுகள்",
+    community: "சமூகம்",
+  },
   home: {
     profile: {
       comingSoon: "சுயவிவரப் பக்கம் விரைவில் வருகிறது!",
@@ -1671,6 +1802,39 @@ const taMessages = {
       title: "சமீபத்திய செக்-இன்கள்",
       empty: "நீங்கள் இன்னும் எந்த டிரெயிலும் செக்-இன் செய்யவில்லை. தொடங்க QR குறியீட்டை ஸ்கேன் செய்யவும்!",
       trailLabel: "டிரெயில் {id}",
+    },
+  },
+  leaderboard: {
+    pageTitle: "முன்னணிப் பட்டியல்",
+    signInPrompt: "முன்னணிப் பட்டியலைப் பார்க்க உள்நுழையவும்.",
+    tabs: {
+      system: "சமூக முன்னணி",
+      org: "என் அமைப்பு",
+    },
+    entries: {
+      you: "நீங்கள்",
+      participantLabel: "பங்கேற்பாளர் {id}",
+    },
+    org: {
+      unknown: "அமைப்பு",
+      label: "அமைப்பு {id}",
+      noOrgMessage: "ஒரு அமைப்பில் சேர்ந்து அதன் முன்னணியைப் பார்க்கவும்.",
+      currentLabel: "தற்போதைய அமைப்பு",
+      switchLabel: "அமைப்பை மாற்றவும்",
+    },
+    blocks: {
+      title: "சிறந்த 50",
+      loading: "முன்னணிப் பட்டியல் ஏற்றப்படுகிறது...",
+      rank: "{rank} ஆம் இடம்",
+      refreshing: "புதுப்பிக்கிறது...",
+      refresh: "புதுப்பி",
+      keepGoing: "தொடருங்கள்! நீங்கள் தற்போது {rank}வது இடத்தில் உள்ளீர்கள்.",
+      emptyOrg: "இந்த அமைப்பிற்கு இன்னும் பதிவுகள் இல்லை.",
+      emptySystem: "சமூக முன்னணிப் பட்டியலில் இன்னும் பதிவுகள் இல்லை.",
+    },
+    errors: {
+      systemLoad: "சமூக முன்னணியை ஏற்ற முடியவில்லை.",
+      orgLoad: "அமைப்புக் முன்னணியை ஏற்ற முடியவில்லை.",
     },
   },
   myTrails: {
