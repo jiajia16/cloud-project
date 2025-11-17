@@ -66,8 +66,16 @@ function formatDateRange(start, end) {
 }
 
 function shortenId(id) {
-  if (!id) return "—";
+  if (!id) return "-";
   return String(id).slice(0, 8).toUpperCase();
+}
+
+function normalizeDecodeErrorMessage(err) {
+  const raw = err?.message ?? "";
+  if (/Dimensions could be not found/i.test(raw)) {
+    return "Dimensions could not be found.";
+  }
+  return raw;
 }
 
 export default function Scan() {
@@ -299,9 +307,8 @@ export default function Scan() {
         if (!token) throw new Error(t("scan.errors.noTokenImage"));
         await submitToken(token, parsed?.metadata ?? null);
       } catch (err) {
-        setError(
-          err?.message || t("scan.errors.imageDecode")
-        );
+        const message = normalizeDecodeErrorMessage(err);
+        setError(message || t("scan.errors.imageDecode"));
       } finally {
         setLoading(false);
         e.target.value = ""; // allow re-select of the same file
