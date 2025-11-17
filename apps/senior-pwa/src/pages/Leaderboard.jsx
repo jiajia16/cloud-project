@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import { useLocale } from "../contexts/LocaleContext.jsx";
 import { formatPoints } from "@silvertrails/utils";
 import { getSystemLeaderboard, getOrgLeaderboard } from "../services/leaderboard.js";
+import { listOrganisations } from "../services/auth.js";
 import { t } from "../i18n/index.js";
 
 const TAB_KEYS = {
@@ -20,14 +21,23 @@ function displayName(entry, currentUserId) {
     if (entry.user_id === currentUserId) {
         return t("leaderboard.entries.you");
     }
+    if (entry.user_name) {
+        return entry.user_name;
+    }
+    if (entry.name) {
+        return entry.name;
+    }
     return t("leaderboard.entries.participantLabel", {
         id: entry.user_id.slice(0, 6).toUpperCase(),
     });
 }
 
-function formatOrgLabel(orgId) {
+function formatOrgLabel(orgId, orgNameMap) {
     if (!orgId) {
         return t("leaderboard.org.unknown");
+    }
+    if (orgNameMap && orgNameMap[orgId]) {
+        return orgNameMap[orgId];
     }
     return t("leaderboard.org.label", { id: orgId.slice(0, 8).toUpperCase() });
 }
@@ -182,6 +192,38 @@ export default function Leaderboard() {
     const [orgLeaders, setOrgLeaders] = useState([]);
     const [orgLoading, setOrgLoading] = useState(false);
     const [orgError, setOrgError] = useState("");
+    const [orgNameMap, setOrgNameMap] = useState({});
+
+    useEffect(() => {
+        if (!accessToken) {
+            setOrgNameMap({});
+            return;
+        }
+        let cancelled = false;
+        listOrganisations({ accessToken })
+            .then((orgs) => {
+                if (cancelled) {
+                    return;
+                }
+                const map = {};
+                if (Array.isArray(orgs)) {
+                    orgs.forEach((org) => {
+                        if (org?.id) {
+                            map[org.id] = org.name || org.id;
+                        }
+                    });
+                }
+                setOrgNameMap(map);
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setOrgNameMap({});
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [accessToken]);
 
     const fetchSystemLeaders = useCallback(
         async ({ signal } = {}) => {
@@ -277,7 +319,10 @@ export default function Leaderboard() {
         }
     }, [accessToken]);
 
-    const selectedOrgLabel = useMemo(() => formatOrgLabel(selectedOrgId), [selectedOrgId, locale]);
+    const selectedOrgLabel = useMemo(
+        () => formatOrgLabel(selectedOrgId, orgNameMap),
+        [selectedOrgId, orgNameMap, locale],
+    );
 
     const tabDefs = useMemo(
         () => [
@@ -330,7 +375,7 @@ export default function Leaderboard() {
                             >
                                 {orgIds.map((orgId) => (
                                     <option key={orgId} value={orgId}>
-                                        {formatOrgLabel(orgId)}
+                                        {formatOrgLabel(orgId, orgNameMap)}
                                     </option>
                                 ))}
                             </select>
