@@ -816,7 +816,10 @@ export default function ManageTrailsPage() {
                           p: activity.points,
                           t: activity.id,
                       });
-                const dataUrl = await QRCode.toDataURL(shareUrl, { width: 320, margin: 1 });
+                const dataUrl = await QRCode.toDataURL(shareUrl, {
+                    width: 320,
+                    margin: 4, // extra quiet zone improves decoder reliability
+                });
                 setActivities((prev) =>
                     prev.map((a) => {
                         if (a.id !== id) return a;
@@ -868,7 +871,10 @@ export default function ManageTrailsPage() {
                           t: item.id,
                       });
                 // eslint-disable-next-line no-await-in-loop
-                const dataUrl = await QRCode.toDataURL(shareUrl, { width: 320, margin: 1 });
+                const dataUrl = await QRCode.toDataURL(shareUrl, {
+                    width: 320,
+                    margin: 4,
+                });
                 setActivities((prev) =>
                     prev.map((a) => {
                         if (a.id !== item.id) return a;
@@ -1568,7 +1574,7 @@ export default function ManageTrailsPage() {
             setInviteQrError(null);
             try {
                 const target = invite.url ?? invite.invite_token;
-                const dataUrl = await QRCode.toDataURL(target, { width: 320, margin: 1 });
+            const dataUrl = await QRCode.toDataURL(target, { width: 320, margin: 4 });
                 if (active) {
                     setInviteQrUrl(dataUrl);
                 }
