@@ -3,7 +3,7 @@ import { BrowserMultiFormatReader } from "@zxing/browser";
 
 export default function QRScanner({
   onResult,
-  onUnavailable,  // <-- call this to switch to upload UI
+  onUnavailable,
   className = ""
 }) {
   const videoRef = useRef(null);
@@ -64,7 +64,7 @@ export default function QRScanner({
       }
     };
 
-    // Watchdog: if the video never starts, bail out to upload flow
+    // if the video never starts, bail out to upload flow
     const wd = setTimeout(() => {
       const v = videoRef.current;
       const stalled =
@@ -104,7 +104,6 @@ export default function QRScanner({
         <div className="pointer-events-none absolute inset-0 ring-2 ring-white/30" />
       </div>
 
-      {/* tiny footer row for manual switch */}
       <div className="flex items-center justify-end gap-2 px-4 py-3 bg-white">
         <button
           type="button"

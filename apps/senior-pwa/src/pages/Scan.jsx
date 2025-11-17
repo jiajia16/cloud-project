@@ -697,7 +697,7 @@ export default function Scan() {
             {canLiveScan ? (
               <QRScanner
                 onResult={handleScanResult}
-                onUnavailable={() => setCanLiveScan(false)}   // <-- auto fallback
+                onUnavailable={() => setCanLiveScan(false)} 
                 className="mt-5"
               />
             ) : (

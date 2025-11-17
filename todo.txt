@@ -1,1 +1,0 @@
-The logout request reached the auth service and returned 204, but SQLAlchemy logged a warning: some database sessions were left mid-transaction instead of being explicitly committed/rolled back and returned to the pool. The garbage collector had to drop those connections, which means there’s a connection-leak bug in the auth service’s session handling that should be fixed.

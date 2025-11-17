@@ -38,7 +38,7 @@ type LoadingState = {
 function formatUserId(value: string) {
   if (!value) return "Unknown";
   if (value.length <= 12) return value;
-  // Use ASCII-only separator to avoid any encoding issues:
+  // Use ASCII-only separator to avoid any encoding 
   return `${value.slice(0, 8)}...${value.slice(-4)}`;
 }
 
@@ -159,7 +159,7 @@ export default function InsightsPage() {
 
   const numberFormatter = useMemo(() => new Intl.NumberFormat("en-SG"), []);
 
-  // System leaderboard (not rendered yet in UI but kept to preserve current behavior)
+  // System leaderboard 
   useEffect(() => {
     if (!accessToken) {
       setSystemRows([]);

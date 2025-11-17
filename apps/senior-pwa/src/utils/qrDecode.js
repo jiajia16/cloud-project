@@ -1,13 +1,5 @@
-// Minimal QR decoder for image files using ZXing
-// Works with object URLs; revokes URL after decode.
-
 import { BrowserQRCodeReader } from "@zxing/browser";
 
-/**
- * Decode a QR code text from an image File (PNG/JPG).
- * @param {File} file
- * @returns {Promise<string>} decoded text
- */
 export async function decodeQrFromFile(file) {
   const url = URL.createObjectURL(file);
   try {

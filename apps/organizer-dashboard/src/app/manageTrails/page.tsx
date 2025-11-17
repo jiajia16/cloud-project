@@ -66,17 +66,13 @@ type TrailActivity = {
     notes?: string;
     qrToken?: TrailQrToken | null;
     qrShareUrl?: string | null;
-    // Object URL created from PNG blob; not persisted
     qrImageUrl?: string | null;
-    // UI-only state: whether this item is being edited
     isEditing?: boolean;
-    // Whether the activity has been persisted to the backend
     persisted?: boolean;
 };
 
 function makeId() {
     try {
-        // @ts-ignore - crypto may exist in browser
         if (typeof crypto !== "undefined" && (crypto as any).randomUUID) {
             return (crypto as any).randomUUID();
         }
@@ -562,7 +558,6 @@ export default function ManageTrailsPage() {
     );
 
     useEffect(() => {
-        // Clear existing activity state when switching trails or losing auth
         setActivities((prev) => {
             prev.forEach((activity) => {
                 if (activity.qrImageUrl) {
@@ -853,7 +848,6 @@ export default function ManageTrailsPage() {
         setBulkQrLoading(true);
         try {
             for (const item of sortedActivities) {
-                // eslint-disable-next-line no-await-in-loop
                 const qr = await createActivityQr({
                     accessToken,
                     trailId: selectedTrailId,
@@ -869,7 +863,6 @@ export default function ManageTrailsPage() {
                           p: item.points,
                           t: item.id,
                       });
-                // eslint-disable-next-line no-await-in-loop
                 const dataUrl = await QRCode.toDataURL(shareUrl, {
                     width: 320,
                     margin: 4,

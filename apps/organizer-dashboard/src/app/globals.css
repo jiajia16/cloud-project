@@ -2,9 +2,7 @@
 
 :root {
   --background: #f8fafc;
-  /* same as Tailwind bg-gray-50 */
   --foreground: #111827;
-  /* same as text-gray-900 */
 }
 
 body {

@@ -169,7 +169,6 @@ export default function Rewards() {
                             signal: controller.signal,
                         });
                     } catch (err) {
-                        // ignore fetching errors so we can still mark this trail as processed
                     }
                     if (trail) {
                         try {
