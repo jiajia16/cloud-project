@@ -51,7 +51,6 @@ import {
     createActivityQr,
     createTrailQr,
     getTrailRoster,
-    getTrailQrImage,
     type Checkin,
     type TrailQrToken,
 } from "../../services/checkins";
@@ -1354,8 +1353,17 @@ export default function ManageTrailsPage() {
     }, [checkinLink, checkinQr]);
 
     const handleLoadQrImage = useCallback(async () => {
-        if (!accessToken || !selectedTrail) {
+        if (!selectedTrail) {
             setAlert({ type: "error", message: "Select a trail first." });
+            return;
+        }
+        if (!checkinQr) {
+            setAlert({ type: "error", message: "Generate a check-in QR first." });
+            return;
+        }
+        const target = checkinLink ?? checkinQr.url;
+        if (!target) {
+            setAlert({ type: "error", message: "Unable to determine the QR link to encode." });
             return;
         }
         const trailId = selectedTrail.id;
@@ -1363,9 +1371,8 @@ export default function ManageTrailsPage() {
         setCheckinQrImageErrorByTrail((prev) => ({ ...prev, [trailId]: null }));
         setTrailQrImage(trailId, null);
         try {
-            const blob = await getTrailQrImage({ accessToken, trailId });
-            const objectUrl = URL.createObjectURL(blob);
-            setTrailQrImage(trailId, objectUrl);
+            const dataUrl = await QRCode.toDataURL(target, { width: 512, margin: 4 });
+            setTrailQrImage(trailId, dataUrl);
         } catch (err) {
             const message = getErrorMessage(err);
             setCheckinQrImageErrorByTrail((prev) => ({ ...prev, [trailId]: message }));
@@ -1373,7 +1380,7 @@ export default function ManageTrailsPage() {
         } finally {
             setCheckinQrImageLoadingTrailId((current) => (current === trailId ? null : current));
         }
-    }, [accessToken, selectedTrail, setTrailQrImage]);
+    }, [checkinLink, checkinQr, selectedTrail, setTrailQrImage]);
 
     useEffect(() => {
         if (!selectedTrailId) {
